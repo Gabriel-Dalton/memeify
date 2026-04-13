@@ -22,6 +22,7 @@ export function useRoomSync(
   const [room, setRoom] = useState<Room | null>(null);
   const [me, setMe] = useState<RoomMember | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [leaveNotice, setLeaveNotice] = useState<string | null>(null);
   const navigatedRef = useRef(false);
 
   const expected = useMemo(
@@ -97,10 +98,15 @@ export function useRoomSync(
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "room_members", filter: `room_id=eq.${room.id}` },
-        async () => {
+        async (payload) => {
           if (userId) {
             const m = await getMyMembership(room.id, userId);
             setMe(m);
+          }
+          if (payload.eventType === "DELETE") {
+            const nickname = (payload.old as RoomMember | undefined)?.nickname ?? "Someone";
+            setLeaveNotice(`${nickname} left the room`);
+            window.setTimeout(() => setLeaveNotice(null), 4000);
           }
         },
       )
@@ -111,5 +117,11 @@ export function useRoomSync(
     };
   }, [room, userId]);
 
-  return { room, me, error, isAdmin: !!room && !!userId && room.created_by === userId };
+  return {
+    room,
+    me,
+    error,
+    leaveNotice,
+    isAdmin: !!room && !!userId && room.created_by === userId,
+  };
 }

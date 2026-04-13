@@ -161,6 +161,16 @@ export async function getMyMembership(roomId: string, userId: string) {
   return row.data;
 }
 
+export async function leaveRoom(roomId: string, userId: string) {
+  const client = getClient();
+  const del = await client
+    .from("room_members")
+    .delete()
+    .eq("room_id", roomId)
+    .eq("user_id", userId);
+  if (del.error) throw new Error(del.error.message);
+}
+
 export async function kickMember(roomId: string, userId: string) {
   const client = getClient();
   const update = await client

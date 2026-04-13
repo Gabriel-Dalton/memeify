@@ -18,12 +18,17 @@ import { supabase } from "@/lib/supabase/client";
 import { type Meme, type Vote } from "@/types/memeify";
 import { formatVoteCount } from "@/lib/utils";
 import { useRoomSync } from "@/lib/supabase/use-room-sync";
+import { LeaveButton } from "@/components/game/leave-button";
 
 export default function VotePage() {
   const params = useParams<{ roomCode: string }>();
   const roomCode = String(params.roomCode).toUpperCase();
   const session = getSession();
-  const { room, error: syncError } = useRoomSync(roomCode, session?.userId, "voting");
+  const { room, error: syncError, leaveNotice } = useRoomSync(
+    roomCode,
+    session?.userId,
+    "voting",
+  );
 
   const [memes, setMemes] = useState<Meme[]>([]);
   const [votes, setVotes] = useState<Vote[]>([]);
@@ -142,6 +147,14 @@ export default function VotePage() {
       subtitle="Vote for the best caption. You can't vote for your own. Results pop up once everyone has voted."
     >
       <SectionCard className="space-y-3">
+        <div className="flex items-center justify-end">
+          <LeaveButton roomId={room?.id} prominent />
+        </div>
+        {leaveNotice ? (
+          <div className="border-[2.5px] border-ink bg-riso-yellow px-3 py-2 font-mono text-xs uppercase tracking-[0.15em] shadow-stamp-sm">
+            ← {leaveNotice}
+          </div>
+        ) : null}
         <div className="flex items-center justify-between font-mono text-[11px] uppercase tracking-[0.15em] text-ink/70">
           <span>Votes in</span>
           <span>

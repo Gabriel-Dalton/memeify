@@ -17,12 +17,17 @@ import {
 } from "@/lib/supabase/game";
 import { supabase } from "@/lib/supabase/client";
 import { useRoomSync } from "@/lib/supabase/use-room-sync";
+import { LeaveButton } from "@/components/game/leave-button";
 
 export default function EditRoomPage() {
   const params = useParams<{ roomCode: string }>();
   const roomCode = String(params.roomCode).toUpperCase();
   const session = getSession();
-  const { room, error: syncError } = useRoomSync(roomCode, session?.userId, "editing");
+  const { room, error: syncError, leaveNotice } = useRoomSync(
+    roomCode,
+    session?.userId,
+    "editing",
+  );
 
   const [error] = useState<string | null>(null);
   const [expired, setExpired] = useState(false);
@@ -114,7 +119,16 @@ export default function EditRoomPage() {
       subtitle="Upload a photo, caption it, stack filters, drop face parts. Round ends automatically once everyone submits."
     >
       <SectionCard className="space-y-4">
+        <div className="flex items-center justify-end">
+          <LeaveButton roomId={room?.id} prominent />
+        </div>
         <Countdown roomCode={roomCode} onExpire={() => setExpired(true)} />
+
+        {leaveNotice ? (
+          <div className="border-[2.5px] border-ink bg-riso-yellow px-3 py-2 font-mono text-xs uppercase tracking-[0.15em] shadow-stamp-sm">
+            ← {leaveNotice}
+          </div>
+        ) : null}
 
         {/* Submission progress bar */}
         <div>

@@ -11,6 +11,7 @@ import { getRoomMembers, kickMember, setRoomStatus } from "@/lib/supabase/game";
 import { useRoomSync } from "@/lib/supabase/use-room-sync";
 import { getSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase/client";
+import { LeaveButton } from "@/components/game/leave-button";
 
 export default function RoomLobbyPage() {
   const params = useParams<{ roomCode: string }>();
@@ -19,7 +20,7 @@ export default function RoomLobbyPage() {
   const session = getSession();
   const userId = session?.userId;
 
-  const { room, error: syncError, isAdmin } = useRoomSync(roomCode, userId, "waiting");
+  const { room, error: syncError, isAdmin, leaveNotice } = useRoomSync(roomCode, userId, "waiting");
 
   const [members, setMembers] = useState<RoomMember[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -143,7 +144,16 @@ export default function RoomLobbyPage() {
             ★ HOST
           </span>
         ) : null}
+        <div className="ml-auto">
+          <LeaveButton roomId={room?.id} prominent />
+        </div>
       </div>
+
+      {leaveNotice ? (
+        <div className="border-[2.5px] border-ink bg-riso-yellow px-3 py-2 font-mono text-xs uppercase tracking-[0.15em] shadow-stamp-sm">
+          ← {leaveNotice}
+        </div>
+      ) : null}
 
       <SectionCard>
         {syncError || error ? (

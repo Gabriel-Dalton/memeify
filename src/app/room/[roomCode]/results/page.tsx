@@ -18,12 +18,13 @@ import { type Meme, type Vote } from "@/types/memeify";
 import { formatVoteCount } from "@/lib/utils";
 import { getSession } from "@/lib/session";
 import { useRoomSync } from "@/lib/supabase/use-room-sync";
+import { LeaveButton } from "@/components/game/leave-button";
 
 export default function ResultsPage() {
   const params = useParams<{ roomCode: string }>();
   const roomCode = String(params.roomCode).toUpperCase();
   const session = getSession();
-  const { room, isAdmin, error: syncError } = useRoomSync(
+  const { room, isAdmin, error: syncError, leaveNotice } = useRoomSync(
     roomCode,
     session?.userId,
     "results",
@@ -122,6 +123,14 @@ export default function ResultsPage() {
       title={`Results • Round ${room?.round_number ?? 1}`}
       subtitle="The votes are in. Bask in it — or demand a rematch."
     >
+      <div className="flex items-center justify-end">
+        <LeaveButton roomId={room?.id} prominent />
+      </div>
+      {leaveNotice ? (
+        <div className="border-[2.5px] border-ink bg-riso-yellow px-3 py-2 font-mono text-xs uppercase tracking-[0.15em] shadow-stamp-sm">
+          ← {leaveNotice}
+        </div>
+      ) : null}
       {syncError || error ? <p className="zine-error">{syncError ?? error}</p> : null}
 
       {winner && winner.score > 0 ? (

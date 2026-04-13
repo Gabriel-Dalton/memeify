@@ -147,6 +147,11 @@ create policy "Memes deletable"
 
 grant delete on public.memes to anon, authenticated;
 grant delete on public.votes to anon, authenticated;
+grant delete on public.room_members to anon, authenticated;
+
+drop policy if exists "Members deletable" on public.room_members;
+create policy "Members deletable"
+  on public.room_members for delete using (true);
 
 -- Enable Realtime for the tables that drive the synchronous flow.
 -- Must come AFTER tables are created.
