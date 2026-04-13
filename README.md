@@ -39,7 +39,7 @@ Users create or join a room, upload an image, edit a meme in a 3-minute round, s
    npm install
    ```
 
-2. Create `.env.local` in `/home/runner/work/memeify/memeify`:
+2. Create `.env.local` in the project root:
 
    ```bash
    NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
@@ -48,7 +48,7 @@ Users create or join a room, upload an image, edit a meme in a 3-minute round, s
 
 3. In Supabase SQL editor, run schema from:
 
-   - `/home/runner/work/memeify/memeify/supabase/schema.sql`
+   - `./supabase/schema.sql`
 
 4. Ensure Supabase auth + storage setup:
 

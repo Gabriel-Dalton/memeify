@@ -3,7 +3,13 @@ export function cn(...classes: Array<string | false | null | undefined>) {
 }
 
 export function generateRoomCode() {
-  return Math.random().toString(36).slice(2, 7).toUpperCase();
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let code = "";
+  for (let i = 0; i < 5; i += 1) {
+    const index = Math.floor(Math.random() * alphabet.length);
+    code += alphabet[index];
+  }
+  return code;
 }
 
 export function formatCountdown(totalSeconds: number) {

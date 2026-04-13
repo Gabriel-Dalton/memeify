@@ -45,10 +45,22 @@ create table if not exists public.votes (
 create index if not exists idx_memes_room_round on public.memes(room_id, round_number);
 create index if not exists idx_votes_room_round on public.votes(room_id, round_number);
 
+create or replace view public.leaderboard as
+select
+  m.user_id,
+  max(m.nickname) as nickname,
+  count(distinct m.id)::int as total_memes,
+  count(v.id)::int as total_votes
+from public.memes m
+left join public.votes v on v.meme_id = m.id
+group by m.user_id;
+
 alter table public.rooms enable row level security;
 alter table public.room_members enable row level security;
 alter table public.memes enable row level security;
 alter table public.votes enable row level security;
+
+grant select on public.leaderboard to anon, authenticated;
 
 create policy if not exists "Rooms are readable by anyone"
 on public.rooms for select using (true);

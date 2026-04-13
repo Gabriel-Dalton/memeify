@@ -275,7 +275,7 @@ export function MemeEditor({ onSubmit, disabled = false }: MemeEditorProps) {
                 onClick={() => applyFilter(filter)}
                 className={`rounded-lg px-3 py-2 text-xs font-semibold uppercase ${activeFilter === filter ? "bg-fuchsia-600 text-white" : "bg-white/10 text-slate-200"}`}
               >
-                {filter === "pixelate" ? "Funny distortion" : filter}
+                {filter === "pixelate" ? "Pixelate" : filter}
               </button>
             ))}
           </div>

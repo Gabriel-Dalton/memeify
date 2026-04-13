@@ -28,10 +28,13 @@ export function Countdown({ roomCode, onExpire }: Props) {
       window.localStorage.setItem(deadlineKey, String(deadline));
     }
 
+    let hasExpired = false;
+
     const tick = () => {
       const diff = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
       setSecondsLeft(diff);
-      if (diff === 0 && onExpire) {
+      if (diff === 0 && onExpire && !hasExpired) {
+        hasExpired = true;
         onExpire();
       }
     };

@@ -47,7 +47,8 @@ export default function EditRoomPage() {
 
     try {
       imageUrl = await uploadMemeImage(room.code, session.userId, blob);
-    } catch {
+    } catch (caught) {
+      console.error("Storage upload failed, using data URL fallback.", caught);
       // Storage can be disabled in some Supabase setups; keep MVP flow moving with data URL fallback.
       imageUrl = dataUrl;
     }

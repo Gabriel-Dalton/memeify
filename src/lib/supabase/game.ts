@@ -38,7 +38,7 @@ export async function createRoomAndJoin(roomName: string, nickname: string) {
   }
 
   if (!room) {
-    throw new Error("Unable to create room. Please try again.");
+    throw new Error("Failed to generate a unique room code after multiple attempts. Please try again.");
   }
 
   const memberInsert = await client.from("room_members").insert({
@@ -228,39 +228,21 @@ export async function getVotes(roomId: string, roundNumber: number) {
 
 export async function getGlobalLeaderboard(limit = 25): Promise<LeaderboardEntry[]> {
   const client = getClient();
-  const [memesRes, votesRes] = await Promise.all([
-    client.from("memes").select("id, user_id, nickname"),
-    client.from("votes").select("meme_id"),
-  ]);
+  const rows = await client
+    .from("leaderboard")
+    .select("user_id, nickname, total_votes, total_memes")
+    .order("total_votes", { ascending: false })
+    .order("total_memes", { ascending: false })
+    .limit(limit);
 
-  if (memesRes.error) {
-    throw new Error(memesRes.error.message);
+  if (rows.error) {
+    throw new Error(rows.error.message);
   }
 
-  if (votesRes.error) {
-    throw new Error(votesRes.error.message);
-  }
-
-  const voteCountByMeme = new Map<string, number>();
-  for (const vote of votesRes.data ?? []) {
-    voteCountByMeme.set(vote.meme_id, (voteCountByMeme.get(vote.meme_id) ?? 0) + 1);
-  }
-
-  const byUser = new Map<string, LeaderboardEntry>();
-  for (const meme of memesRes.data ?? []) {
-    const existing = byUser.get(meme.user_id) ?? {
-      userId: meme.user_id,
-      nickname: meme.nickname,
-      totalVotes: 0,
-      totalMemes: 0,
-    };
-
-    existing.totalMemes += 1;
-    existing.totalVotes += voteCountByMeme.get(meme.id) ?? 0;
-    byUser.set(meme.user_id, existing);
-  }
-
-  return [...byUser.values()]
-    .sort((a, b) => b.totalVotes - a.totalVotes || b.totalMemes - a.totalMemes)
-    .slice(0, limit);
+  return (rows.data ?? []).map((row) => ({
+    userId: row.user_id as string,
+    nickname: row.nickname as string,
+    totalVotes: row.total_votes as number,
+    totalMemes: row.total_memes as number,
+  }));
 }
