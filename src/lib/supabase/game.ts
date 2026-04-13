@@ -193,6 +193,57 @@ export async function startNextRound(roomId: string, currentRound: number) {
   }
 }
 
+// Bake current round's vote counts into room_members.score so the
+// leaderboard + per-room scores survive image deletion.
+export async function persistRoundScores(roomId: string, roundNumber: number) {
+  const client = getClient();
+
+  const memes = await client
+    .from("memes")
+    .select("id, user_id")
+    .eq("room_id", roomId)
+    .eq("round_number", roundNumber);
+  if (memes.error) throw new Error(memes.error.message);
+
+  const votes = await client
+    .from("votes")
+    .select("meme_id")
+    .eq("room_id", roomId)
+    .eq("round_number", roundNumber);
+  if (votes.error) throw new Error(votes.error.message);
+
+  const memeToOwner = new Map<string, string>();
+  for (const row of memes.data ?? []) {
+    memeToOwner.set((row as { id: string }).id, (row as { user_id: string }).user_id);
+  }
+
+  const userScore = new Map<string, number>();
+  for (const row of votes.data ?? []) {
+    const owner = memeToOwner.get((row as { meme_id: string }).meme_id);
+    if (owner) userScore.set(owner, (userScore.get(owner) ?? 0) + 1);
+  }
+
+  // Read existing scores to add on top (so multi-round scores accumulate).
+  const existing = await client
+    .from("room_members")
+    .select("user_id, score")
+    .eq("room_id", roomId);
+  if (existing.error) throw new Error(existing.error.message);
+
+  for (const row of existing.data ?? []) {
+    const uid = (row as { user_id: string }).user_id;
+    const prev = (row as { score: number }).score;
+    const add = userScore.get(uid) ?? 0;
+    if (add > 0) {
+      await client
+        .from("room_members")
+        .update({ score: prev + add })
+        .eq("room_id", roomId)
+        .eq("user_id", uid);
+    }
+  }
+}
+
 export async function uploadMemeImage(roomCode: string, userId: string, pngBlob: Blob) {
   const client = getClient();
   const key = `${roomCode}/${userId}-${Date.now()}.png`;
@@ -219,16 +270,24 @@ export async function submitMeme(args: {
   const client = getClient();
   const user = await ensureAuthenticatedUser();
 
-  const insert = await client.from("memes").insert({
-    room_id: args.roomId,
-    user_id: user.id,
-    nickname: args.nickname,
-    image_url: args.imageUrl,
-    round_number: args.roundNumber,
-  });
+  // Upsert on (room, user, round) — so a resubmit replaces the prior entry
+  // instead of inserting a duplicate. This is what makes the "everyone
+  // submitted" detection correct.
+  const up = await client
+    .from("memes")
+    .upsert(
+      {
+        room_id: args.roomId,
+        user_id: user.id,
+        nickname: args.nickname,
+        image_url: args.imageUrl,
+        round_number: args.roundNumber,
+      },
+      { onConflict: "room_id,user_id,round_number" },
+    );
 
-  if (insert.error) {
-    throw new Error(insert.error.message);
+  if (up.error) {
+    throw new Error(up.error.message);
   }
 
   const markSubmitted = await client
@@ -240,6 +299,54 @@ export async function submitMeme(args: {
   if (markSubmitted.error) {
     throw new Error(markSubmitted.error.message);
   }
+}
+
+// Delete all meme rows AND storage files for a given round.
+// Called from the host's "Next round" and "Wipe images" buttons.
+export async function deleteRoundImages(
+  roomId: string,
+  roomCode: string,
+  roundNumber: number,
+) {
+  const client = getClient();
+
+  // 1. Fetch urls (so we can strip the storage key) + user_ids for storage
+  //    file prefix matching. The uploaded filename pattern is
+  //    `${roomCode}/${userId}-${timestamp}.png`, so listing by roomCode
+  //    prefix catches all of them for this room. We only delete files
+  //    for round-specific memes by looking up their explicit paths.
+  const memeRows = await client
+    .from("memes")
+    .select("image_url")
+    .eq("room_id", roomId)
+    .eq("round_number", roundNumber);
+
+  if (!memeRows.error && memeRows.data) {
+    const paths = memeRows.data
+      .map((row) => {
+        const url = (row as { image_url: string }).image_url;
+        // publicUrl looks like .../storage/v1/object/public/memes/<key>
+        const marker = "/memes/";
+        const idx = url.indexOf(marker);
+        return idx >= 0 ? url.slice(idx + marker.length) : null;
+      })
+      .filter((p): p is string => !!p);
+
+    if (paths.length > 0) {
+      // Best-effort: if storage policy blocks delete, we still wipe DB rows.
+      await client.storage.from("memes").remove(paths);
+    }
+  }
+
+  // 2. Delete DB rows (also cascades votes via FK).
+  const del = await client
+    .from("memes")
+    .delete()
+    .eq("room_id", roomId)
+    .eq("round_number", roundNumber);
+  if (del.error) throw new Error(del.error.message);
+
+  return { deleted: memeRows.data?.length ?? 0 };
 }
 
 export async function getRoundMemes(roomId: string, roundNumber: number) {

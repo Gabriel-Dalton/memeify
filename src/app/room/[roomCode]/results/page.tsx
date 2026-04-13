@@ -6,7 +6,13 @@ import { useEffect, useMemo, useState } from "react";
 import { PageShell } from "@/components/ui/page-shell";
 import { PrimaryButton } from "@/components/ui/primary-button";
 import { SectionCard } from "@/components/ui/section-card";
-import { getRoundMemes, getVotes, startNextRound } from "@/lib/supabase/game";
+import {
+  deleteRoundImages,
+  getRoundMemes,
+  getVotes,
+  persistRoundScores,
+  startNextRound,
+} from "@/lib/supabase/game";
 import { supabase } from "@/lib/supabase/client";
 import { type Meme, type Vote } from "@/types/memeify";
 import { formatVoteCount } from "@/lib/utils";
@@ -27,6 +33,8 @@ export default function ResultsPage() {
   const [votes, setVotes] = useState<Vote[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [advancing, setAdvancing] = useState(false);
+  const [wiping, setWiping] = useState(false);
+  const [wiped, setWiped] = useState(false);
 
   useEffect(() => {
     if (!room) return;
@@ -78,10 +86,34 @@ export default function ResultsPage() {
     if (!room || !isAdmin) return;
     setAdvancing(true);
     try {
+      // Persist this round's scores, wipe its images, then advance.
+      await persistRoundScores(room.id, room.round_number);
+      if (!wiped) {
+        await deleteRoundImages(room.id, room.code, room.round_number);
+        setWiped(true);
+      }
       await startNextRound(room.id, room.round_number);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Couldn't start next round.");
       setAdvancing(false);
+    }
+  };
+
+  const wipeNow = async () => {
+    if (!room || !isAdmin || wiping) return;
+    if (!confirm("Delete all images from this round? This cannot be undone.")) return;
+    setWiping(true);
+    try {
+      await persistRoundScores(room.id, room.round_number);
+      const { deleted } = await deleteRoundImages(room.id, room.code, room.round_number);
+      setWiped(true);
+      setMemes([]);
+      setVotes([]);
+      alert(`Wiped ${deleted} image${deleted === 1 ? "" : "s"}. Scores saved.`);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Couldn't wipe images.");
+    } finally {
+      setWiping(false);
     }
   };
 
@@ -117,42 +149,52 @@ export default function ResultsPage() {
       ) : (
         <SectionCard>
           <p className="font-mono text-sm text-ink/70">
-            No votes were cast this round. Everyone loses equally.
+            {wiped
+              ? "Images wiped. Scores saved."
+              : "No votes were cast this round. Everyone loses equally."}
           </p>
         </SectionCard>
       )}
 
-      <SectionCard>
-        <h2 className="font-display text-xl">Full ranking</h2>
-        <ul className="mt-4 space-y-2">
-          {ranked.map((entry, index) => (
-            <li
-              key={entry.meme.id}
-              className="flex items-center justify-between border-[2px] border-ink bg-paper-deep px-4 py-3 font-mono text-sm shadow-stamp-sm"
-            >
-              <span className="flex items-center gap-3">
-                <span className="font-display text-riso-pink">
-                  #{String(index + 1).padStart(2, "0")}
+      {!wiped && ranked.length > 1 ? (
+        <SectionCard>
+          <h2 className="font-display text-xl">Full ranking</h2>
+          <ul className="mt-4 space-y-2">
+            {ranked.map((entry, index) => (
+              <li
+                key={entry.meme.id}
+                className="flex items-center justify-between border-[2px] border-ink bg-paper-deep px-4 py-3 font-mono text-sm shadow-stamp-sm"
+              >
+                <span className="flex items-center gap-3">
+                  <span className="font-display text-riso-pink">
+                    #{String(index + 1).padStart(2, "0")}
+                  </span>
+                  {entry.meme.nickname}
                 </span>
-                {entry.meme.nickname}
-              </span>
-              <span className="font-display text-xs uppercase tracking-wide">
-                {formatVoteCount(entry.score)}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </SectionCard>
+                <span className="font-display text-xs uppercase tracking-wide">
+                  {formatVoteCount(entry.score)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </SectionCard>
+      ) : null}
 
       <SectionCard className="flex flex-wrap items-center gap-3">
         {isAdmin ? (
           <>
-            <p className="font-mono text-sm text-ink/80">
-              Host controls →
-            </p>
+            <p className="font-mono text-sm text-ink/80">Host controls →</p>
             <PrimaryButton type="button" onClick={nextRound} disabled={advancing}>
-              {advancing ? "Starting…" : `▸ Next round`}
+              {advancing ? "Starting…" : "▸ Next round"}
             </PrimaryButton>
+            <button
+              type="button"
+              onClick={wipeNow}
+              disabled={wiping || wiped}
+              className="ghost-btn"
+            >
+              {wiped ? "✓ Images wiped" : wiping ? "Wiping…" : "🗑 Wipe round images"}
+            </button>
           </>
         ) : (
           <p className="font-pixel text-lg text-ink/70">

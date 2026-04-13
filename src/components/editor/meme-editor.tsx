@@ -4,6 +4,12 @@ import { Canvas, FabricImage, Textbox, type FabricObject, filters } from "fabric
 import { type ChangeEvent, useCallback, useEffect, useRef, useState } from "react";
 import { PrimaryButton } from "@/components/ui/primary-button";
 import { SectionCard } from "@/components/ui/section-card";
+import {
+  detectFaces,
+  resolveAnchor,
+  SNAP_FILTERS,
+  type SnapFilter,
+} from "@/lib/face-filters";
 
 const STICKERS = ["😂", "🔥", "💀", "🐸", "😎", "🤡", "🎉", "👀", "🫠", "💩", "❌", "✨", "🧠", "🤖", "🥸", "😭"];
 
@@ -149,6 +155,8 @@ export function MemeEditor({ onSubmit, disabled = false }: MemeEditorProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasImage, setHasImage] = useState(false);
   const [showAllFaceKit, setShowAllFaceKit] = useState(false);
+  const [snapLoading, setSnapLoading] = useState<string | null>(null);
+  const [snapError, setSnapError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!canvasElRef.current || canvasRef.current) return;
@@ -302,6 +310,100 @@ export function MemeEditor({ onSubmit, disabled = false }: MemeEditorProps) {
     canvas.requestRenderAll();
   }, []);
 
+  const applySnapFilter = useCallback(async (filter: SnapFilter) => {
+    const canvas = canvasRef.current;
+    const image = baseImageRef.current;
+    if (!canvas || !image) return;
+    setSnapError(null);
+    setSnapLoading(filter.id);
+
+    try {
+      const el = image.getElement() as HTMLImageElement;
+      const faces = await detectFaces(el);
+
+      const imgW = image.width ?? el.naturalWidth ?? 1;
+      const imgH = image.height ?? el.naturalHeight ?? 1;
+      const scaleX = image.scaleX ?? 1;
+      const scaleY = image.scaleY ?? 1;
+      const centerX = image.left ?? canvas.getWidth() / 2;
+      const centerY = image.top ?? canvas.getHeight() / 2;
+
+      // Image uses originX/originY: 'center'. A point (px, py) in image-pixel
+      // coords maps to canvas coords by:
+      //   canvasX = centerX + (px - imgW/2) * scaleX
+      const toCanvas = (p: { x: number; y: number }) => ({
+        x: centerX + (p.x - imgW / 2) * scaleX,
+        y: centerY + (p.y - imgH / 2) * scaleY,
+      });
+
+      if (faces.length === 0) {
+        // Fallback: pretend the whole image is one big face.
+        const fauxFace = {
+          boxX: 0,
+          boxY: 0,
+          boxW: imgW,
+          boxH: imgH,
+          leftEye: { x: imgW * 0.35, y: imgH * 0.4 },
+          rightEye: { x: imgW * 0.65, y: imgH * 0.4 },
+          noseTip: { x: imgW * 0.5, y: imgH * 0.55 },
+          mouthCenter: { x: imgW * 0.5, y: imgH * 0.7 },
+          chin: { x: imgW * 0.5, y: imgH * 0.9 },
+          foreheadTop: { x: imgW * 0.5, y: imgH * 0.1 },
+          leftEar: { x: imgW * 0.15, y: imgH * 0.5 },
+          rightEar: { x: imgW * 0.85, y: imgH * 0.5 },
+        };
+        setSnapError("No face detected — placed filter at center instead.");
+        for (const item of filter.items) {
+          const anchor = resolveAnchor(fauxFace, item.anchor);
+          const faceWidthCanvas = fauxFace.boxW * scaleX;
+          const pos = toCanvas({
+            x: anchor.x + (item.dx ?? 0) * fauxFace.boxW,
+            y: anchor.y + (item.dy ?? 0) * fauxFace.boxH,
+          });
+          const t = new Textbox(item.emoji, {
+            left: pos.x,
+            top: pos.y,
+            fontSize: faceWidthCanvas * item.size,
+            originX: "center",
+            originY: "center",
+            editable: false,
+            angle: item.rotate ?? 0,
+          });
+          canvas.add(t);
+        }
+      } else {
+        for (const face of faces) {
+          const faceWidthCanvas = face.boxW * scaleX;
+          for (const item of filter.items) {
+            const anchor = resolveAnchor(face, item.anchor);
+            const pos = toCanvas({
+              x: anchor.x + (item.dx ?? 0) * face.boxW,
+              y: anchor.y + (item.dy ?? 0) * face.boxH,
+            });
+            const t = new Textbox(item.emoji, {
+              left: pos.x,
+              top: pos.y,
+              fontSize: faceWidthCanvas * item.size,
+              originX: "center",
+              originY: "center",
+              editable: false,
+              angle: item.rotate ?? 0,
+            });
+            canvas.add(t);
+          }
+        }
+      }
+      canvas.requestRenderAll();
+    } catch (caught) {
+      console.error(caught);
+      setSnapError(
+        caught instanceof Error ? caught.message : "Face filter failed — try again.",
+      );
+    } finally {
+      setSnapLoading(null);
+    }
+  }, []);
+
   const deleteActive = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -374,6 +476,38 @@ export function MemeEditor({ onSubmit, disabled = false }: MemeEditorProps) {
         <PrimaryButton type="button" onClick={addCaption} className="w-full">
           Add draggable captions
         </PrimaryButton>
+
+        {/* ---- SNAP FILTERS (face detection) ---- */}
+        <div>
+          <p className="mb-2 font-display text-xs uppercase tracking-[0.15em]">
+            Snap Filters <span className="text-ink/50">({SNAP_FILTERS.length})</span>
+          </p>
+          <p className="mb-2 font-mono text-[10px] text-ink/60">
+            Auto-places overlays on detected faces. First click downloads a small
+            model (~2MB) — give it a sec.
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {SNAP_FILTERS.map((filter) => (
+              <button
+                key={filter.id}
+                type="button"
+                onClick={() => applySnapFilter(filter)}
+                disabled={!hasImage || snapLoading !== null}
+                className={`border-[2px] border-ink px-2 py-2 text-left font-display text-[11px] uppercase shadow-stamp-sm transition-transform hover:-translate-y-[2px] disabled:cursor-not-allowed disabled:opacity-40 ${
+                  snapLoading === filter.id ? "bg-riso-yellow" : "bg-paper-deep"
+                }`}
+              >
+                <span className="mr-1">{filter.emoji}</span>
+                {snapLoading === filter.id ? "detecting…" : filter.label}
+              </button>
+            ))}
+          </div>
+          {snapError ? (
+            <p className="mt-2 border-[2px] border-ink bg-riso-yellow px-2 py-1.5 font-mono text-[10px] text-ink">
+              {snapError}
+            </p>
+          ) : null}
+        </div>
 
         {/* ---- FACE KIT ---- */}
         <div>

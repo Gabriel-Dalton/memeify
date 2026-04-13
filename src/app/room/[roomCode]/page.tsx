@@ -58,12 +58,14 @@ export default function RoomLobbyPage() {
     void copyInvite();
   };
 
-  // No session → bounce to join.
+  // No session for THIS room code → redirect to the auto-join route so the
+  // user just has to type a nickname and pops back in. Don't kick people out
+  // of their own room just because they refreshed.
   useEffect(() => {
-    if (!session) {
-      router.replace("/room/join");
+    if (!session || session.roomCode !== roomCode) {
+      router.replace(`/room/join/${roomCode}`);
     }
-  }, [session, router]);
+  }, [session, roomCode, router]);
 
   const refreshMembers = useCallback(async () => {
     if (!room) return;

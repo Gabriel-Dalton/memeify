@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { PrimaryButton } from "@/components/ui/primary-button";
+import { ResumeCard } from "@/components/home/resume-card";
 
 export default function Home() {
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-4 py-10 sm:px-6 lg:px-8">
+      <ResumeCard />
       {/* ===== HERO ===== */}
       <section className="relative">
         <span className="tape left-10 -top-3 -rotate-[6deg]" aria-hidden />

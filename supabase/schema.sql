@@ -38,6 +38,29 @@ create table if not exists public.memes (
   created_at timestamptz not null default timezone('utc', now())
 );
 
+-- One meme per user per round. If an existing deployment has duplicates
+-- (from earlier resubmits), keep the most recent and delete the rest
+-- before adding the unique constraint.
+do $$
+begin
+  delete from public.memes m1
+  using public.memes m2
+  where m1.id <> m2.id
+    and m1.room_id = m2.room_id
+    and m1.user_id = m2.user_id
+    and m1.round_number = m2.round_number
+    and m1.created_at < m2.created_at;
+
+  begin
+    alter table public.memes
+      add constraint memes_room_user_round_unique
+      unique (room_id, user_id, round_number);
+  exception
+    when duplicate_object then null;
+    when duplicate_table then null;
+  end;
+end $$;
+
 create table if not exists public.votes (
   id uuid primary key default uuid_generate_v4(),
   room_id uuid not null references public.rooms(id) on delete cascade,
@@ -113,6 +136,17 @@ create policy "Public meme storage read"
   on storage.objects for select using (bucket_id = 'memes');
 create policy "Anyone can upload memes"
   on storage.objects for insert with check (bucket_id = 'memes');
+
+drop policy if exists "Anyone can delete memes" on storage.objects;
+create policy "Anyone can delete memes"
+  on storage.objects for delete using (bucket_id = 'memes');
+
+drop policy if exists "Memes deletable" on public.memes;
+create policy "Memes deletable"
+  on public.memes for delete using (true);
+
+grant delete on public.memes to anon, authenticated;
+grant delete on public.votes to anon, authenticated;
 
 -- Enable Realtime for the tables that drive the synchronous flow.
 -- Must come AFTER tables are created.
