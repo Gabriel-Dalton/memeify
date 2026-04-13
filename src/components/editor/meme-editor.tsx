@@ -6,6 +6,13 @@ import { PrimaryButton } from "@/components/ui/primary-button";
 import { SectionCard } from "@/components/ui/section-card";
 
 const STICKERS = ["😂", "🔥", "💀", "🐸", "😎", "🤡", "🎉"];
+const FILTER_LABELS: Record<FilterType, string> = {
+  none: "None",
+  grayscale: "Grayscale",
+  sepia: "Sepia",
+  invert: "Invert",
+  pixelate: "Pixelate",
+};
 
 type FilterType = "none" | "grayscale" | "sepia" | "invert" | "pixelate";
 
@@ -275,7 +282,7 @@ export function MemeEditor({ onSubmit, disabled = false }: MemeEditorProps) {
                 onClick={() => applyFilter(filter)}
                 className={`rounded-lg px-3 py-2 text-xs font-semibold uppercase ${activeFilter === filter ? "bg-fuchsia-600 text-white" : "bg-white/10 text-slate-200"}`}
               >
-                {filter === "pixelate" ? "Pixelate" : filter}
+                {FILTER_LABELS[filter]}
               </button>
             ))}
           </div>
