@@ -24,6 +24,39 @@ export default function RoomLobbyPage() {
   const [members, setMembers] = useState<RoomMember[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isStarting, setIsStarting] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const inviteUrl =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/room/join/${roomCode}`
+      : `/room/join/${roomCode}`;
+
+  const copyInvite = async () => {
+    try {
+      await navigator.clipboard.writeText(inviteUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      // Clipboard might be blocked (old browser, insecure context). Fallback:
+      window.prompt("Copy this link:", inviteUrl);
+    }
+  };
+
+  const shareInvite = async () => {
+    if (typeof navigator !== "undefined" && "share" in navigator) {
+      try {
+        await navigator.share({
+          title: "Join my Memeify room",
+          text: `Come caption the meme with me → code ${roomCode}`,
+          url: inviteUrl,
+        });
+        return;
+      } catch {
+        // user cancelled — fall through to clipboard.
+      }
+    }
+    void copyInvite();
+  };
 
   // No session → bounce to join.
   useEffect(() => {
@@ -120,9 +153,35 @@ export default function RoomLobbyPage() {
             <h2 className="font-display text-xl">
               Players <span className="text-riso-pink">({members.length})</span>
             </h2>
-            <p className="mt-1 font-mono text-xs text-ink/60">
-              Share the code <span className="font-display text-ink">{roomCode}</span> to fill the room.
-            </p>
+            <div className="mt-3 space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/60">
+                  invite link
+                </span>
+                <button
+                  type="button"
+                  onClick={shareInvite}
+                  className="ghost-btn text-[10px]"
+                  title="Share link"
+                >
+                  {copied ? "✓ copied" : "↗ share"}
+                </button>
+                <button
+                  type="button"
+                  onClick={copyInvite}
+                  className="ghost-btn text-[10px]"
+                  title="Copy link"
+                >
+                  {copied ? "✓ copied" : "⎘ copy"}
+                </button>
+              </div>
+              <code className="block overflow-hidden text-ellipsis whitespace-nowrap border-[2px] border-ink bg-paper-deep px-2 py-1.5 font-mono text-[11px] text-ink/80 shadow-stamp-sm">
+                {inviteUrl}
+              </code>
+              <p className="font-mono text-[11px] text-ink/60">
+                Or share the code <span className="font-display text-ink">{roomCode}</span>.
+              </p>
+            </div>
             <ul className="mt-4 space-y-2">
               {members.map((member, i) => {
                 const isHost = member.user_id === room?.created_by;

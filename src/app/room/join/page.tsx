@@ -42,7 +42,7 @@ export default function JoinRoomPage() {
   };
 
   return (
-    <PageShell title="Join room" subtitle="Drop in and start memeing with your crew.">
+    <PageShell title="Join room" subtitle="Got a 5-letter code? Drop it in. Got an invite link? Tap it instead — code gets filled in automatically.">
       <SectionCard className="mx-auto w-full max-w-xl">
         <form onSubmit={onSubmit} className="space-y-4">
           <label className="block text-sm font-semibold">

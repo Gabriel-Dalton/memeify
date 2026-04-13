@@ -24,30 +24,9 @@ create table if not exists public.room_members (
   unique (room_id, user_id)
 );
 
--- Additive migration for existing deployments.
+-- Additive migration for existing deployments that already had room_members.
 alter table public.room_members
   add column if not exists kicked_at timestamptz;
-
--- Enable Realtime for the tables that drive the synchronous flow.
-do $$
-begin
-  begin
-    alter publication supabase_realtime add table public.rooms;
-  exception when duplicate_object then null;
-  end;
-  begin
-    alter publication supabase_realtime add table public.room_members;
-  exception when duplicate_object then null;
-  end;
-  begin
-    alter publication supabase_realtime add table public.memes;
-  exception when duplicate_object then null;
-  end;
-  begin
-    alter publication supabase_realtime add table public.votes;
-  exception when duplicate_object then null;
-  end;
-end $$;
 
 create table if not exists public.memes (
   id uuid primary key default uuid_generate_v4(),
@@ -134,3 +113,21 @@ create policy "Public meme storage read"
   on storage.objects for select using (bucket_id = 'memes');
 create policy "Anyone can upload memes"
   on storage.objects for insert with check (bucket_id = 'memes');
+
+-- Enable Realtime for the tables that drive the synchronous flow.
+-- Must come AFTER tables are created.
+do $$
+begin
+  begin alter publication supabase_realtime add table public.rooms;
+  exception when duplicate_object then null; end;
+  begin alter publication supabase_realtime add table public.room_members;
+  exception when duplicate_object then null; end;
+  begin alter publication supabase_realtime add table public.memes;
+  exception when duplicate_object then null; end;
+  begin alter publication supabase_realtime add table public.votes;
+  exception when duplicate_object then null; end;
+end $$;
+
+-- Force PostgREST to reload its schema cache (fixes
+-- "Could not find the 'kicked_at' column in the schema cache").
+notify pgrst, 'reload schema';
