@@ -17,6 +17,7 @@ export async function createRoomAndJoin(roomName: string, nickname: string) {
   const user = await ensureAuthenticatedUser();
 
   let room: Room | null = null;
+  let lastErrorMessage = "";
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const code = generateRoomCode();
     const roomInsert = await client
@@ -35,10 +36,17 @@ export async function createRoomAndJoin(roomName: string, nickname: string) {
       room = roomInsert.data;
       break;
     }
+
+    lastErrorMessage = roomInsert.error?.message ?? "Unknown database error.";
+    if (roomInsert.error?.code !== "23505") {
+      break;
+    }
   }
 
   if (!room) {
-    throw new Error("Failed to generate a unique room code after multiple attempts. Please try again.");
+    throw new Error(
+      `Failed to create room after multiple attempts. Last error: ${lastErrorMessage}`,
+    );
   }
 
   const memberInsert = await client.from("room_members").insert({

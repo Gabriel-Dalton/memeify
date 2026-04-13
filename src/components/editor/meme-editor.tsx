@@ -84,31 +84,38 @@ export function MemeEditor({ onSubmit, disabled = false }: MemeEditorProps) {
 
     const reader = new FileReader();
     reader.onload = async () => {
-      const result = reader.result;
-      if (typeof result !== "string" || !canvasRef.current) {
-        return;
+      try {
+        const result = reader.result;
+        if (typeof result !== "string" || !canvasRef.current) {
+          return;
+        }
+
+        const image = await FabricImage.fromURL(result);
+        if (!image.width || !image.height) {
+          throw new Error("Uploaded image dimensions could not be read.");
+        }
+        image.set({ selectable: false, evented: false });
+
+        const canvas = canvasRef.current;
+        const scale = Math.min(
+          canvas.getWidth() / image.width,
+          canvas.getHeight() / image.height,
+        );
+        image.scale(scale);
+        image.set({
+          left: (canvas.getWidth() - (image.getScaledWidth() ?? 0)) / 2,
+          top: (canvas.getHeight() - (image.getScaledHeight() ?? 0)) / 2,
+        });
+
+        canvas.clear();
+        canvas.backgroundColor = "#111827";
+        canvas.add(image);
+        canvas.sendObjectToBack(image);
+        baseImageRef.current = image;
+        applyFilter(activeFilter);
+      } catch (caught) {
+        console.error("Unable to load uploaded image.", caught);
       }
-
-      const image = await FabricImage.fromURL(result);
-      image.set({ selectable: false, evented: false });
-
-      const canvas = canvasRef.current;
-      const scale = Math.min(
-        canvas.getWidth() / (image.width ?? canvas.getWidth()),
-        canvas.getHeight() / (image.height ?? canvas.getHeight()),
-      );
-      image.scale(scale);
-      image.set({
-        left: (canvas.getWidth() - (image.getScaledWidth() ?? 0)) / 2,
-        top: (canvas.getHeight() - (image.getScaledHeight() ?? 0)) / 2,
-      });
-
-      canvas.clear();
-      canvas.backgroundColor = "#111827";
-      canvas.add(image);
-      canvas.sendObjectToBack(image);
-      baseImageRef.current = image;
-      applyFilter(activeFilter);
     };
 
     reader.readAsDataURL(file);
