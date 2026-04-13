@@ -20,8 +20,34 @@ create table if not exists public.room_members (
   score integer not null default 0,
   joined_at timestamptz not null default timezone('utc', now()),
   submitted_at timestamptz,
+  kicked_at timestamptz,
   unique (room_id, user_id)
 );
+
+-- Additive migration for existing deployments.
+alter table public.room_members
+  add column if not exists kicked_at timestamptz;
+
+-- Enable Realtime for the tables that drive the synchronous flow.
+do $$
+begin
+  begin
+    alter publication supabase_realtime add table public.rooms;
+  exception when duplicate_object then null;
+  end;
+  begin
+    alter publication supabase_realtime add table public.room_members;
+  exception when duplicate_object then null;
+  end;
+  begin
+    alter publication supabase_realtime add table public.memes;
+  exception when duplicate_object then null;
+  end;
+  begin
+    alter publication supabase_realtime add table public.votes;
+  exception when duplicate_object then null;
+  end;
+end $$;
 
 create table if not exists public.memes (
   id uuid primary key default uuid_generate_v4(),

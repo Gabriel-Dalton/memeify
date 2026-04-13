@@ -13,31 +13,31 @@ export default function Home() {
           <div className="flex flex-col justify-between gap-8">
             <div>
               <p className="font-mono text-[11px] uppercase tracking-[0.35em] text-ink/70">
-                ▓ BULLETIN · VOL. 01 · NOT FOR RESALE ▓
+                ▓ A PARTY GAME FOR YOUR GROUP CHAT ▓
               </p>
               <h1 className="mt-4 font-display text-[40px] leading-[0.88] tracking-tight sm:text-[72px] lg:text-[88px]">
-                <span className="block animate-stamp-in riso-print">MAKE A</span>
+                <span className="block animate-stamp-in riso-print">CAPTION</span>
                 <span
                   className="block animate-stamp-in riso-print"
                   style={{ animationDelay: "120ms" }}
                 >
-                  MEME.
+                  THE MEME.
                 </span>
                 <span
                   className="block animate-stamp-in text-ink/90"
                   style={{ animationDelay: "240ms", fontSize: "0.55em" }}
                 >
-                  — in three{" "}
-                  <span className="bg-riso-yellow px-2 font-display">minutes flat.</span>
+                  — funniest one{" "}
+                  <span className="bg-riso-yellow px-2 font-display">wins.</span>
                 </span>
               </h1>
               <p
                 className="mt-6 max-w-md animate-slide-up font-mono text-sm leading-relaxed text-ink/80 sm:text-base"
                 style={{ animationDelay: "360ms" }}
               >
-                Upload a photo. Get three minutes. Slap text, stickers, and bad
-                decisions on it. The room votes. The goblin with the most laughs
-                wins. That&apos;s the whole zine.
+                Everyone uploads a photo, captions it, and remixes it with filters.
+                The room votes on the best one. Host controls the pace. Play in a
+                group chat, in person, or across continents — fast, stupid, fun.
               </p>
             </div>
 
@@ -59,7 +59,7 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Stamped "polaroid" side panel */}
+          {/* Stamped polaroid — illustrative screenshot of the vibe */}
           <div className="relative flex items-center justify-center">
             <div
               className="relative rotate-[4deg] border-[3px] border-ink bg-paper p-3 shadow-stamp transition-transform hover:rotate-0 hover-jitter"
@@ -79,7 +79,6 @@ export default function Home() {
                     LOL
                   </span>
                 </div>
-                {/* halftone dots corner */}
                 <div
                   className="absolute -bottom-2 -right-2 h-16 w-16"
                   style={{
@@ -90,15 +89,15 @@ export default function Home() {
                 />
               </div>
               <p className="mt-2 text-center font-pixel text-lg text-ink">
-                Exhibit A — the proof
+                your meme, but better
               </p>
               <span
                 className="absolute -left-4 -top-4 inline-flex h-14 w-14 rotate-[-18deg] items-center justify-center rounded-full border-[2.5px] border-riso-pink bg-paper font-display text-[10px] uppercase text-riso-pink"
                 style={{ lineHeight: "1.05" }}
               >
-                100%
+                play
                 <br />
-                HAND-MADE
+                free
               </span>
             </div>
           </div>
@@ -111,12 +110,12 @@ export default function Home() {
           {Array.from({ length: 2 }).map((_, i) => (
             <div key={i} className="flex shrink-0 items-center">
               {[
-                "★ three minute battles",
-                "◆ no filter, all chaos",
+                "★ everyone captions the same round",
+                "◆ host picks the pace",
                 "✱ vote the funniest",
-                "▲ leaderboard updates live",
-                "● DIY meme culture",
-                "✺ bring your own goblins",
+                "▲ 18 filters to weird out any photo",
+                "● no sign-up, no downloads",
+                "✺ play in the group chat",
               ].map((t, j) => (
                 <span key={`${i}-${j}`} className="px-8">
                   {t}
@@ -132,22 +131,22 @@ export default function Home() {
         {[
           {
             n: "01",
-            title: "Summon a room",
-            body: "Create a battle room. Get a four-letter code. Text it to your group chat. Watch the goblins arrive.",
+            title: "Start a room",
+            body: "Create a room, share the 5-letter code. Whoever starts the room is the host and controls the pace.",
             color: "bg-riso-pink",
             rotate: "-rotate-[1.2deg]",
           },
           {
             n: "02",
-            title: "Three minutes of chaos",
-            body: "A prompt drops. The timer starts. Upload a photo, smash text on it, drag stickers, panic. Submit before the bell.",
+            title: "Caption the meme",
+            body: "Host hits Start — everyone jumps into the editor at once. Upload a photo, slap on captions, pick a filter (noir, deep fry, VHS, acid…). Submit when you're happy.",
             color: "bg-riso-yellow",
             rotate: "rotate-[0.8deg]",
           },
           {
             n: "03",
-            title: "Room votes, bragging begins",
-            body: "Every meme goes to a jury of your peers (your dumb friends). Votes tally live. The leaderboard remembers.",
+            title: "Vote the winner",
+            body: "Everyone votes for their favorite (no self-votes). Host reveals results. Run another round, or crown a champion.",
             color: "bg-riso-blue",
             rotate: "-rotate-[0.6deg]",
           },
@@ -185,24 +184,21 @@ export default function Home() {
         ))}
       </section>
 
-      {/* ===== RULES / FINE PRINT ===== */}
+      {/* ===== RULES / HOST ===== */}
       <section className="grid gap-5 lg:grid-cols-[2fr_1fr]">
         <div className="relative border-[3px] border-ink bg-paper-deep p-6 shadow-stamp">
           <p className="font-mono text-[11px] uppercase tracking-[0.35em] text-ink/70">
-            ✎ HOUSE RULES · POSTED BY MGMT
+            ✎ HOUSE RULES
           </p>
           <ul className="mt-4 space-y-3 font-mono text-sm leading-relaxed sm:text-base">
             {[
-              ["NO.", "Be funny. That is the only rule."],
-              ["NO.", "You may not vote for your own meme. We see you."],
-              ["NO.", "The timer is non-negotiable. Three minutes. Clock's ticking."],
-              ["NO.", "Screenshots encouraged. Printing to actual paper encouraged more."],
+              ["01", "Be funny. That's the only real rule."],
+              ["02", "You can't vote for your own meme. We see you."],
+              ["03", "The host runs the clock. Everyone moves together."],
+              ["04", "The host can kick trolls. Don't be a troll."],
             ].map(([label, rule], i) => (
               <li key={i} className="flex gap-4">
-                <span className="shrink-0 font-display text-riso-pink">
-                  {label}
-                  {String(i + 1).padStart(2, "0")}
-                </span>
+                <span className="shrink-0 font-display text-riso-pink">#{label}</span>
                 <span>{rule}</span>
               </li>
             ))}
@@ -212,10 +208,10 @@ export default function Home() {
         <aside className="relative flex flex-col justify-between gap-4 border-[3px] border-ink bg-ink p-6 text-paper shadow-stamp-pink">
           <div>
             <p className="font-mono text-[11px] uppercase tracking-[0.35em] text-paper/70">
-              »» tip from the editor
+              »» tip for hosts
             </p>
             <p className="mt-3 font-display text-2xl leading-tight text-paper">
-              The dumber the image, the better the meme.
+              The weirder the photo, the better the round.
             </p>
           </div>
           <Link

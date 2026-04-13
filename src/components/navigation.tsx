@@ -26,7 +26,7 @@ export function Navigation() {
             MEMEIFY
           </span>
           <span className="hidden font-mono text-[10px] uppercase tracking-[0.3em] text-ink/60 sm:inline">
-            / a zine for goblins
+            / caption the meme
           </span>
         </Link>
         <nav className="flex items-center gap-1 sm:gap-2">

@@ -1,52 +1,99 @@
 "use client";
 
-import Link from "next/link";
-import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 import { RoomStateBadge } from "@/components/game/room-state-badge";
 import { PageShell } from "@/components/ui/page-shell";
 import { PrimaryButton } from "@/components/ui/primary-button";
 import { SectionCard } from "@/components/ui/section-card";
-import { type Room, type RoomMember } from "@/types/memeify";
-import { getRoom, getRoomMembers, setRoomStatus } from "@/lib/supabase/game";
+import { type RoomMember } from "@/types/memeify";
+import { getRoomMembers, kickMember, setRoomStatus } from "@/lib/supabase/game";
+import { useRoomSync } from "@/lib/supabase/use-room-sync";
+import { getSession } from "@/lib/session";
+import { supabase } from "@/lib/supabase/client";
 
 export default function RoomLobbyPage() {
   const params = useParams<{ roomCode: string }>();
+  const router = useRouter();
   const roomCode = String(params.roomCode).toUpperCase();
-  const [room, setRoom] = useState<Room | null>(null);
+  const session = getSession();
+  const userId = session?.userId;
+
+  const { room, error: syncError, isAdmin } = useRoomSync(roomCode, userId, "waiting");
+
   const [members, setMembers] = useState<RoomMember[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isStarting, setIsStarting] = useState(false);
+
+  // No session → bounce to join.
+  useEffect(() => {
+    if (!session) {
+      router.replace("/room/join");
+    }
+  }, [session, router]);
+
+  const refreshMembers = useCallback(async () => {
+    if (!room) return;
+    try {
+      setMembers(await getRoomMembers(room.id));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not load players.");
+    }
+  }, [room]);
 
   useEffect(() => {
-    const load = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const roomData = await getRoom(roomCode);
-        const roomMembers = await getRoomMembers(roomData.id);
-        setRoom(roomData);
-        setMembers(roomMembers);
-      } catch (caught) {
-        setError(caught instanceof Error ? caught.message : "Unable to load room.");
-      } finally {
-        setIsLoading(false);
-      }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void refreshMembers();
+  }, [refreshMembers]);
+
+  // Live member list via realtime.
+  useEffect(() => {
+    if (!supabase || !room) return;
+    const client = supabase;
+    const channel = client
+      .channel(`lobby-members-${room.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "room_members", filter: `room_id=eq.${room.id}` },
+        () => refreshMembers(),
+      )
+      .subscribe();
+    return () => {
+      void client.removeChannel(channel);
     };
+  }, [room, refreshMembers]);
 
-    load();
-  }, [roomCode]);
+  const start = async () => {
+    if (!room || !isAdmin) return;
+    setIsStarting(true);
+    try {
+      await setRoomStatus(room.id, "editing");
+      // useRoomSync will auto-navigate everyone (including admin) to /edit.
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not start the game.");
+      setIsStarting(false);
+    }
+  };
 
-  const startEditing = async () => {
-    if (!room) return;
-    await setRoomStatus(room.id, "editing");
-    setRoom({ ...room, status: "editing" });
+  const onKick = async (member: RoomMember) => {
+    if (!room || !isAdmin) return;
+    if (member.user_id === userId) return;
+    if (!confirm(`Kick ${member.nickname}?`)) return;
+    try {
+      await kickMember(room.id, member.user_id);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not kick player.");
+    }
   };
 
   return (
     <PageShell
-      title={room ? `${room.name}` : `Room ${roomCode}`}
-      subtitle="Invite players, then move through Edit → Vote → Results."
+      title={room ? room.name : `Room ${roomCode}`}
+      subtitle={
+        isAdmin
+          ? "You're the host. Wait for your crew, then hit Start."
+          : "You're in the room. Waiting for the host to start."
+      }
     >
       <div className="flex flex-wrap items-center gap-3">
         <span className="border-[2.5px] border-ink bg-riso-yellow px-3 py-1.5 font-display text-[11px] uppercase tracking-[0.2em] shadow-stamp-sm">
@@ -56,49 +103,106 @@ export default function RoomLobbyPage() {
         <span className="font-mono text-xs uppercase tracking-[0.15em] text-ink/70">
           Round {room?.round_number ?? 1}
         </span>
+        {isAdmin ? (
+          <span className="border-[2.5px] border-ink bg-ink px-3 py-1.5 font-display text-[11px] uppercase tracking-[0.2em] text-paper shadow-stamp-sm">
+            ★ HOST
+          </span>
+        ) : null}
       </div>
 
       <SectionCard>
-        {isLoading ? (
-          <p className="font-mono text-sm text-ink/70">Loading room…</p>
+        {syncError || error ? (
+          <p className="zine-error mb-4">{syncError ?? error}</p>
         ) : null}
-        {error ? <p className="zine-error">{error}</p> : null}
-        {!isLoading && !error ? (
-          <div className="grid gap-6 sm:grid-cols-2">
-            <div>
-              <h2 className="font-display text-xl">
-                Players <span className="text-riso-pink">({members.length})</span>
-              </h2>
-              <ul className="mt-4 space-y-2">
-                {members.map((member, i) => (
+
+        <div className="grid gap-6 sm:grid-cols-2">
+          <div>
+            <h2 className="font-display text-xl">
+              Players <span className="text-riso-pink">({members.length})</span>
+            </h2>
+            <p className="mt-1 font-mono text-xs text-ink/60">
+              Share the code <span className="font-display text-ink">{roomCode}</span> to fill the room.
+            </p>
+            <ul className="mt-4 space-y-2">
+              {members.map((member, i) => {
+                const isHost = member.user_id === room?.created_by;
+                const isYou = member.user_id === userId;
+                return (
                   <li
                     key={member.id}
-                    className="flex items-center gap-3 border-[2px] border-ink bg-paper-deep px-3 py-2 font-mono text-sm shadow-stamp-sm"
+                    className="flex items-center justify-between gap-3 border-[2px] border-ink bg-paper-deep px-3 py-2 font-mono text-sm shadow-stamp-sm"
                   >
-                    <span className="font-display text-xs text-riso-pink">
-                      #{String(i + 1).padStart(2, "0")}
+                    <span className="flex items-center gap-3">
+                      <span className="font-display text-xs text-riso-pink">
+                        #{String(i + 1).padStart(2, "0")}
+                      </span>
+                      <span>{member.nickname}</span>
+                      {isHost ? (
+                        <span className="border-[1.5px] border-ink bg-riso-yellow px-1.5 py-0.5 font-display text-[9px] uppercase">
+                          HOST
+                        </span>
+                      ) : null}
+                      {isYou ? (
+                        <span className="font-display text-[10px] uppercase text-ink/60">
+                          (you)
+                        </span>
+                      ) : null}
                     </span>
-                    {member.nickname}
+                    {isAdmin && !isHost ? (
+                      <button
+                        type="button"
+                        onClick={() => onKick(member)}
+                        className="border-[2px] border-ink bg-paper px-2 py-1 font-display text-[10px] uppercase shadow-stamp-sm transition-transform hover:-translate-y-[1px] hover:bg-riso-pink"
+                        title="Kick player"
+                      >
+                        ✗ kick
+                      </button>
+                    ) : null}
                   </li>
-                ))}
-              </ul>
-            </div>
-            <div className="space-y-3">
-              <PrimaryButton type="button" className="w-full" onClick={startEditing}>
-                Start editing phase
-              </PrimaryButton>
-              <Link href={`/room/${roomCode}/edit`} className="ghost-btn w-full">
-                → Go to meme editor
-              </Link>
-              <Link href={`/room/${roomCode}/vote`} className="ghost-btn w-full">
-                → Go to voting page
-              </Link>
-              <Link href={`/room/${roomCode}/results`} className="ghost-btn w-full">
-                → View results
-              </Link>
-            </div>
+                );
+              })}
+              {members.length === 0 ? (
+                <li className="font-mono text-sm text-ink/60">
+                  No players yet — invite some.
+                </li>
+              ) : null}
+            </ul>
           </div>
-        ) : null}
+
+          <div className="space-y-3">
+            {isAdmin ? (
+              <>
+                <p className="font-mono text-xs uppercase tracking-[0.15em] text-ink/70">
+                  Host controls
+                </p>
+                <PrimaryButton
+                  type="button"
+                  className="w-full"
+                  onClick={start}
+                  disabled={isStarting || members.length < 1}
+                >
+                  {isStarting ? "Starting…" : `▸ Start Round ${room?.round_number ?? 1}`}
+                </PrimaryButton>
+                <p className="font-mono text-xs text-ink/60">
+                  When you click Start, every player jumps to the meme editor at the same time.
+                  You can still kick trolls during the game.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="font-mono text-xs uppercase tracking-[0.15em] text-ink/70">
+                  Waiting on the host…
+                </p>
+                <div className="border-[2.5px] border-ink bg-riso-yellow p-4 font-mono text-sm shadow-stamp-sm">
+                  The host decides when to start. Poke them in real life.
+                </div>
+                <p className="font-pixel text-lg text-ink/70">
+                  &gt; waiting for host to press start_
+                </p>
+              </>
+            )}
+          </div>
+        </div>
       </SectionCard>
     </PageShell>
   );

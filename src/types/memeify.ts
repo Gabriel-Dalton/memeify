@@ -6,6 +6,7 @@ export interface Room {
   name: string;
   status: RoomStatus;
   round_number: number;
+  created_by: string | null;
   created_at: string;
 }
 
@@ -17,6 +18,7 @@ export interface RoomMember {
   score: number;
   joined_at: string;
   submitted_at: string | null;
+  kicked_at: string | null;
 }
 
 export interface Meme {

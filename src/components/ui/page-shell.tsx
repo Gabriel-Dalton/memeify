@@ -16,7 +16,7 @@ export function PageShell({
         <span className="tape right-10 -top-3 rotate-[10deg]" aria-hidden />
         <div className="border-[3px] border-ink bg-paper-deep p-6 shadow-stamp sm:p-8">
           <p className="font-mono text-[11px] uppercase tracking-[0.35em] text-ink/70">
-            ▓▓ ISSUE FROM THE XEROX ROOM ▓▓
+            ▓▓ MEMEIFY ▓▓
           </p>
           <h1 className="mt-3 font-display text-3xl leading-[0.95] tracking-tight sm:text-5xl lg:text-6xl">
             <span className="riso-print">{title}</span>

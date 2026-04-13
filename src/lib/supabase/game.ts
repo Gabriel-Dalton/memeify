@@ -2,6 +2,10 @@ import { generateRoomCode } from "@/lib/utils";
 import { type LeaderboardEntry, type Meme, type Room, type RoomMember, type Vote } from "@/types/memeify";
 import { ensureAuthenticatedUser, supabase } from "./client";
 
+const ROOM_COLUMNS = "id, code, name, status, round_number, created_by, created_at";
+const MEMBER_COLUMNS =
+  "id, room_id, user_id, nickname, score, joined_at, submitted_at, kicked_at";
+
 function sleep(milliseconds: number) {
   return new Promise((resolve) => {
     setTimeout(resolve, milliseconds);
@@ -14,7 +18,6 @@ function getClient() {
       "Supabase is not configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to continue.",
     );
   }
-
   return supabase;
 }
 
@@ -35,7 +38,7 @@ export async function createRoomAndJoin(roomName: string, nickname: string) {
         round_number: 1,
         created_by: user.id,
       })
-      .select()
+      .select(ROOM_COLUMNS)
       .single<Room>();
 
     if (!roomInsert.error && roomInsert.data) {
@@ -79,7 +82,7 @@ export async function joinRoomByCode(roomCode: string, nickname: string) {
 
   const roomLookup = await client
     .from("rooms")
-    .select("id, code, name, status, round_number, created_at")
+    .select(ROOM_COLUMNS)
     .eq("code", roomCode)
     .single<Room>();
 
@@ -87,16 +90,18 @@ export async function joinRoomByCode(roomCode: string, nickname: string) {
     throw new Error("Room not found.");
   }
 
-  const upsertMember = await client
-    .from("room_members")
-    .upsert(
-      {
-        room_id: roomLookup.data.id,
-        user_id: user.id,
-        nickname,
-      },
-      { onConflict: "room_id,user_id" },
-    );
+  // If the user was previously kicked, un-kick them on rejoin (host may have
+  // changed their mind — or this is a totally new browser). Simpler than
+  // blocking, fits the casual vibe.
+  const upsertMember = await client.from("room_members").upsert(
+    {
+      room_id: roomLookup.data.id,
+      user_id: user.id,
+      nickname,
+      kicked_at: null,
+    },
+    { onConflict: "room_id,user_id" },
+  );
 
   if (upsertMember.error) {
     throw new Error(upsertMember.error.message);
@@ -112,7 +117,7 @@ export async function getRoom(roomCode: string) {
   const client = getClient();
   const roomLookup = await client
     .from("rooms")
-    .select("id, code, name, status, round_number, created_at")
+    .select(ROOM_COLUMNS)
     .eq("code", roomCode)
     .single<Room>();
 
@@ -123,13 +128,15 @@ export async function getRoom(roomCode: string) {
   return roomLookup.data;
 }
 
-export async function getRoomMembers(roomId: string) {
+export async function getRoomMembers(roomId: string, includeKicked = false) {
   const client = getClient();
-  const members = await client
+  const query = client
     .from("room_members")
-    .select("id, room_id, user_id, nickname, score, joined_at, submitted_at")
+    .select(MEMBER_COLUMNS)
     .eq("room_id", roomId)
     .order("joined_at", { ascending: true });
+
+  const members = includeKicked ? await query : await query.is("kicked_at", null);
 
   if (members.error) {
     throw new Error(members.error.message);
@@ -138,9 +145,49 @@ export async function getRoomMembers(roomId: string) {
   return members.data as RoomMember[];
 }
 
+export async function getMyMembership(roomId: string, userId: string) {
+  const client = getClient();
+  const row = await client
+    .from("room_members")
+    .select(MEMBER_COLUMNS)
+    .eq("room_id", roomId)
+    .eq("user_id", userId)
+    .maybeSingle<RoomMember>();
+
+  if (row.error) {
+    throw new Error(row.error.message);
+  }
+
+  return row.data;
+}
+
+export async function kickMember(roomId: string, userId: string) {
+  const client = getClient();
+  const update = await client
+    .from("room_members")
+    .update({ kicked_at: new Date().toISOString() })
+    .eq("room_id", roomId)
+    .eq("user_id", userId);
+
+  if (update.error) {
+    throw new Error(update.error.message);
+  }
+}
+
 export async function setRoomStatus(roomId: string, status: Room["status"]) {
   const client = getClient();
   const updated = await client.from("rooms").update({ status }).eq("id", roomId);
+  if (updated.error) {
+    throw new Error(updated.error.message);
+  }
+}
+
+export async function startNextRound(roomId: string, currentRound: number) {
+  const client = getClient();
+  const updated = await client
+    .from("rooms")
+    .update({ status: "editing", round_number: currentRound + 1 })
+    .eq("id", roomId);
   if (updated.error) {
     throw new Error(updated.error.message);
   }
