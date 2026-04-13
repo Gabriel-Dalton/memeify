@@ -62,37 +62,59 @@ alter table public.votes enable row level security;
 
 grant select on public.leaderboard to anon, authenticated;
 
-create policy if not exists "Rooms are readable by anyone"
-on public.rooms for select using (true);
-create policy if not exists "Authenticated users create rooms"
-on public.rooms for insert to authenticated with check (true);
-create policy if not exists "Authenticated users update room status"
-on public.rooms for update to authenticated using (true) with check (true);
+-- Policies (Postgres does NOT support `CREATE POLICY IF NOT EXISTS`,
+-- so we drop-then-create to stay idempotent.)
 
-create policy if not exists "Members readable"
-on public.room_members for select using (true);
-create policy if not exists "Members upsert"
-on public.room_members for insert to authenticated with check (auth.uid() = user_id);
-create policy if not exists "Members update self"
-on public.room_members for update to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
+drop policy if exists "Rooms are readable by anyone" on public.rooms;
+create policy "Rooms are readable by anyone"
+  on public.rooms for select using (true);
 
-create policy if not exists "Memes readable"
-on public.memes for select using (true);
-create policy if not exists "Users insert own meme"
-on public.memes for insert to authenticated with check (auth.uid() = user_id);
+drop policy if exists "Authenticated users create rooms" on public.rooms;
+create policy "Authenticated users create rooms"
+  on public.rooms for insert to authenticated with check (true);
 
-create policy if not exists "Votes readable"
-on public.votes for select using (true);
-create policy if not exists "Votes insert by voter"
-on public.votes for insert to authenticated with check (auth.uid() = voter_user_id);
+drop policy if exists "Authenticated users update room status" on public.rooms;
+create policy "Authenticated users update room status"
+  on public.rooms for update to authenticated using (true) with check (true);
 
+drop policy if exists "Members readable" on public.room_members;
+create policy "Members readable"
+  on public.room_members for select using (true);
+
+drop policy if exists "Members upsert" on public.room_members;
+create policy "Members upsert"
+  on public.room_members for insert to authenticated with check (auth.uid() = user_id);
+
+drop policy if exists "Members update self" on public.room_members;
+create policy "Members update self"
+  on public.room_members for update to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+drop policy if exists "Memes readable" on public.memes;
+create policy "Memes readable"
+  on public.memes for select using (true);
+
+drop policy if exists "Users insert own meme" on public.memes;
+create policy "Users insert own meme"
+  on public.memes for insert to authenticated with check (auth.uid() = user_id);
+
+drop policy if exists "Votes readable" on public.votes;
+create policy "Votes readable"
+  on public.votes for select using (true);
+
+drop policy if exists "Votes insert by voter" on public.votes;
+create policy "Votes insert by voter"
+  on public.votes for insert to authenticated with check (auth.uid() = voter_user_id);
+
+-- Storage bucket for meme uploads
 insert into storage.buckets (id, name, public)
 values ('memes', 'memes', true)
 on conflict (id) do nothing;
 
-create policy if not exists "Public meme storage read"
-on storage.objects for select using (bucket_id = 'memes');
+drop policy if exists "Public meme storage read" on storage.objects;
+create policy "Public meme storage read"
+  on storage.objects for select using (bucket_id = 'memes');
 
-create policy if not exists "Authenticated users upload memes"
-on storage.objects for insert to authenticated
-with check (bucket_id = 'memes');
+drop policy if exists "Authenticated users upload memes" on storage.objects;
+create policy "Authenticated users upload memes"
+  on storage.objects for insert to authenticated
+  with check (bucket_id = 'memes');
