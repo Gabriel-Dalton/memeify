@@ -1,0 +1,13 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  background:
+    radial-gradient(circle at 15% 10%, rgba(217, 70, 239, 0.3), transparent 35%),
+    radial-gradient(circle at 85% 85%, rgba(59, 130, 246, 0.22), transparent 38%),
+    #020617;
+  font-family: "Inter", "Avenir Next", "Segoe UI", sans-serif;
+}
