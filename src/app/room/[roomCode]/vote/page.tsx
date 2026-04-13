@@ -1,12 +1,19 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PageShell } from "@/components/ui/page-shell";
 import { PrimaryButton } from "@/components/ui/primary-button";
 import { SectionCard } from "@/components/ui/section-card";
 import { getSession } from "@/lib/session";
-import { castVote, getRoundMemes, getVotes, setRoomStatus } from "@/lib/supabase/game";
+import {
+  castVote,
+  countActiveMembers,
+  countRoundVoters,
+  getRoundMemes,
+  getVotes,
+  setRoomStatus,
+} from "@/lib/supabase/game";
 import { supabase } from "@/lib/supabase/client";
 import { type Meme, type Vote } from "@/types/memeify";
 import { formatVoteCount } from "@/lib/utils";
@@ -16,17 +23,42 @@ export default function VotePage() {
   const params = useParams<{ roomCode: string }>();
   const roomCode = String(params.roomCode).toUpperCase();
   const session = getSession();
-  const { room, isAdmin, error: syncError } = useRoomSync(
-    roomCode,
-    session?.userId,
-    "voting",
-  );
+  const { room, error: syncError } = useRoomSync(roomCode, session?.userId, "voting");
 
   const [memes, setMemes] = useState<Meme[]>([]);
   const [votes, setVotes] = useState<Vote[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [ending, setEnding] = useState(false);
+  const [voterCount, setVoterCount] = useState(0);
+  const [totalVoters, setTotalVoters] = useState(0);
+  const transitioningRef = useRef(false);
+
+  const checkAllVoted = useCallback(async () => {
+    if (!room || transitioningRef.current) return;
+    try {
+      const [voters, active] = await Promise.all([
+        countRoundVoters(room.id, room.round_number),
+        countActiveMembers(room.id),
+      ]);
+      setVoterCount(voters);
+      setTotalVoters(active);
+
+      // Adjust for the case where someone can't vote for themselves — really
+      // we just need everyone who CAN vote to vote. For a tiny party game this
+      // is a fine heuristic: once voters >= active, or once voters >= active-1
+      // and there's only one meme (so the author can't vote), advance.
+      if (active > 0 && voters >= active) {
+        transitioningRef.current = true;
+        await setRoomStatus(room.id, "results");
+      } else if (memes.length === 1 && voters >= active - 1 && active > 1) {
+        // One meme, everyone except author voted → done.
+        transitioningRef.current = true;
+        await setRoomStatus(room.id, "results");
+      }
+    } catch (caught) {
+      console.error("auto-transition check failed", caught);
+    }
+  }, [room, memes.length]);
 
   useEffect(() => {
     if (!room) return;
@@ -49,20 +81,31 @@ export default function VotePage() {
     if (!room || !supabase) return;
     const client = supabase;
     const channel = client
-      .channel(`votes-${room.id}-${room.round_number}`)
+      .channel(`vote-sync-${room.id}-${room.round_number}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "votes", filter: `room_id=eq.${room.id}` },
         async () => {
           const fresh = await getVotes(room.id, room.round_number);
           setVotes(fresh);
+          void checkAllVoted();
         },
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "room_members", filter: `room_id=eq.${room.id}` },
+        () => checkAllVoted(),
+      )
       .subscribe();
+
+    const interval = window.setInterval(() => void checkAllVoted(), 3000);
+    void checkAllVoted();
+
     return () => {
+      window.clearInterval(interval);
       void client.removeChannel(channel);
     };
-  }, [room]);
+  }, [room, checkAllVoted]);
 
   const votesByMeme = useMemo(() => {
     const map = new Map<string, number>();
@@ -83,6 +126,7 @@ export default function VotePage() {
       await castVote(room.id, memeId, room.round_number);
       const fresh = await getVotes(room.id, room.round_number);
       setVotes(fresh);
+      void checkAllVoted();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Vote failed.");
     } finally {
@@ -90,23 +134,28 @@ export default function VotePage() {
     }
   };
 
-  const endVoting = async () => {
-    if (!room || !isAdmin) return;
-    setEnding(true);
-    try {
-      await setRoomStatus(room.id, "results");
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Couldn't close voting.");
-      setEnding(false);
-    }
-  };
+  const progressPct = totalVoters > 0 ? Math.round((voterCount / totalVoters) * 100) : 0;
 
   return (
     <PageShell
       title={`Pick the funniest • Round ${room?.round_number ?? 1}`}
-      subtitle="Vote for the best caption. You can't vote for your own."
+      subtitle="Vote for the best caption. You can't vote for your own. Results pop up once everyone has voted."
     >
-      {syncError || error ? <p className="zine-error">{syncError ?? error}</p> : null}
+      <SectionCard className="space-y-3">
+        <div className="flex items-center justify-between font-mono text-[11px] uppercase tracking-[0.15em] text-ink/70">
+          <span>Votes in</span>
+          <span>
+            {voterCount} / {totalVoters}
+          </span>
+        </div>
+        <div className="relative h-4 border-[2.5px] border-ink bg-paper-deep">
+          <div
+            className="h-full bg-riso-blue transition-all"
+            style={{ width: `${progressPct}%` }}
+          />
+        </div>
+        {syncError || error ? <p className="zine-error">{syncError ?? error}</p> : null}
+      </SectionCard>
 
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {memes.map((meme, i) => {
@@ -126,7 +175,7 @@ export default function VotePage() {
                 <img
                   src={meme.image_url}
                   alt={`Meme by ${meme.nickname}`}
-                  className="h-64 w-full object-cover"
+                  className="h-64 w-full object-contain"
                 />
               </div>
               <div className="flex items-center justify-between">
@@ -153,21 +202,10 @@ export default function VotePage() {
         ) : null}
       </div>
 
-      <SectionCard className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        {isAdmin ? (
-          <>
-            <p className="font-mono text-sm text-ink/80">
-              When everyone&apos;s voted, close the round.
-            </p>
-            <PrimaryButton type="button" onClick={endVoting} disabled={ending}>
-              {ending ? "Closing…" : "▸ Show results"}
-            </PrimaryButton>
-          </>
-        ) : (
-          <p className="font-pixel text-lg text-ink/70">
-            &gt; waiting for host to close voting_
-          </p>
-        )}
+      <SectionCard>
+        <p className="font-pixel text-lg text-ink/70">
+          &gt; results appear as soon as everyone has voted_
+        </p>
       </SectionCard>
     </PageShell>
   );

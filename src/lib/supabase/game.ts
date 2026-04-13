@@ -274,6 +274,42 @@ export async function castVote(roomId: string, memeId: string, roundNumber: numb
   }
 }
 
+// Count helpers used by auto-transition logic.
+export async function countRoundMemes(roomId: string, roundNumber: number) {
+  const client = getClient();
+  const { count, error: err } = await client
+    .from("memes")
+    .select("*", { count: "exact", head: true })
+    .eq("room_id", roomId)
+    .eq("round_number", roundNumber);
+  if (err) throw new Error(err.message);
+  return count ?? 0;
+}
+
+export async function countActiveMembers(roomId: string) {
+  const client = getClient();
+  const { count, error: err } = await client
+    .from("room_members")
+    .select("*", { count: "exact", head: true })
+    .eq("room_id", roomId)
+    .is("kicked_at", null);
+  if (err) throw new Error(err.message);
+  return count ?? 0;
+}
+
+export async function countRoundVoters(roomId: string, roundNumber: number) {
+  const client = getClient();
+  // Distinct voters via a RPC-ish pattern — just fetch voter_user_id and dedupe.
+  const { data, error: err } = await client
+    .from("votes")
+    .select("voter_user_id")
+    .eq("room_id", roomId)
+    .eq("round_number", roundNumber);
+  if (err) throw new Error(err.message);
+  const unique = new Set((data ?? []).map((r) => (r as { voter_user_id: string }).voter_user_id));
+  return unique.size;
+}
+
 export async function getVotes(roomId: string, roundNumber: number) {
   const client = getClient();
   const votes = await client

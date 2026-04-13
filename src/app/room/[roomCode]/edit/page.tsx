@@ -1,30 +1,86 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Countdown } from "@/components/game/countdown";
 import { MemeEditor } from "@/components/editor/meme-editor";
 import { PageShell } from "@/components/ui/page-shell";
-import { PrimaryButton } from "@/components/ui/primary-button";
 import { SectionCard } from "@/components/ui/section-card";
 import { dataUrlToBlob } from "@/lib/image";
 import { getSession } from "@/lib/session";
-import { setRoomStatus, submitMeme, uploadMemeImage } from "@/lib/supabase/game";
+import {
+  countActiveMembers,
+  countRoundMemes,
+  setRoomStatus,
+  submitMeme,
+  uploadMemeImage,
+} from "@/lib/supabase/game";
+import { supabase } from "@/lib/supabase/client";
 import { useRoomSync } from "@/lib/supabase/use-room-sync";
 
 export default function EditRoomPage() {
   const params = useParams<{ roomCode: string }>();
   const roomCode = String(params.roomCode).toUpperCase();
   const session = getSession();
-  const { room, isAdmin, error: syncError } = useRoomSync(
-    roomCode,
-    session?.userId,
-    "editing",
-  );
-  const [error, setError] = useState<string | null>(null);
+  const { room, error: syncError } = useRoomSync(roomCode, session?.userId, "editing");
+
+  const [error] = useState<string | null>(null);
   const [expired, setExpired] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [endingRound, setEndingRound] = useState(false);
+  const [submittedCount, setSubmittedCount] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
+  const transitioningRef = useRef(false);
+
+  const checkAllSubmitted = useCallback(async () => {
+    if (!room || transitioningRef.current) return;
+    try {
+      const [memesCount, activeCount] = await Promise.all([
+        countRoundMemes(room.id, room.round_number),
+        countActiveMembers(room.id),
+      ]);
+      setSubmittedCount(memesCount);
+      setTotalCount(activeCount);
+      if (activeCount > 0 && memesCount >= activeCount) {
+        transitioningRef.current = true;
+        await setRoomStatus(room.id, "voting");
+        // useRoomSync will navigate everyone.
+      }
+    } catch (caught) {
+      console.error("auto-transition check failed", caught);
+    }
+  }, [room]);
+
+  // Check immediately + whenever memes/members change via realtime.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void checkAllSubmitted();
+  }, [checkAllSubmitted]);
+
+  useEffect(() => {
+    if (!room || !supabase) return;
+    const client = supabase;
+    const channel = client
+      .channel(`edit-progress-${room.id}-${room.round_number}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "memes", filter: `room_id=eq.${room.id}` },
+        () => checkAllSubmitted(),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "room_members", filter: `room_id=eq.${room.id}` },
+        () => checkAllSubmitted(),
+      )
+      .subscribe();
+
+    // Also poll every 3s as a fallback in case Realtime hiccups.
+    const interval = window.setInterval(() => void checkAllSubmitted(), 3000);
+
+    return () => {
+      window.clearInterval(interval);
+      void client.removeChannel(channel);
+    };
+  }, [room, checkAllSubmitted]);
 
   const onSubmit = async (dataUrl: string) => {
     if (!room) throw new Error("Room is unavailable.");
@@ -47,51 +103,50 @@ export default function EditRoomPage() {
     });
 
     setSubmitted(true);
+    void checkAllSubmitted();
   };
 
-  const endEditingPhase = async () => {
-    if (!room || !isAdmin) return;
-    setEndingRound(true);
-    try {
-      await setRoomStatus(room.id, "voting");
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not end round.");
-      setEndingRound(false);
-    }
-  };
+  const progressPct = totalCount > 0 ? Math.round((submittedCount / totalCount) * 100) : 0;
 
   return (
     <PageShell
       title={`Make the meme • Round ${room?.round_number ?? 1}`}
-      subtitle="Upload a photo, slap captions, remix filters. Submit before the host ends the round."
+      subtitle="Upload a photo, caption it, stack filters, drop face parts. Round ends automatically once everyone submits."
     >
       <SectionCard className="space-y-4">
         <Countdown roomCode={roomCode} onExpire={() => setExpired(true)} />
+
+        {/* Submission progress bar */}
+        <div>
+          <div className="mb-1 flex items-center justify-between font-mono text-[11px] uppercase tracking-[0.15em] text-ink/70">
+            <span>Submissions</span>
+            <span>
+              {submittedCount} / {totalCount}
+            </span>
+          </div>
+          <div className="relative h-4 border-[2.5px] border-ink bg-paper-deep">
+            <div
+              className="h-full bg-riso-pink transition-all"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+        </div>
+
         {submitted ? (
-          <div className="border-[2.5px] border-ink bg-riso-green p-4 font-mono text-sm shadow-stamp-sm">
-            ✓ Meme submitted. You can keep editing and resubmit, or wait for the host to end the round.
+          <div className="border-[2.5px] border-ink bg-riso-green p-3 font-mono text-sm shadow-stamp-sm">
+            ✓ Submitted. Feel free to resubmit a better one — just hit submit again.
           </div>
         ) : null}
         {expired ? (
-          <p className="zine-error">⏰ Time&apos;s up! Submit what you have before the host ends the round.</p>
+          <p className="zine-error">
+            ⏰ Time&apos;s up on the suggested 3 minute timer — but you can still submit while others finish.
+          </p>
         ) : null}
         {syncError || error ? <p className="zine-error">{syncError ?? error}</p> : null}
 
-        {isAdmin ? (
-          <div className="flex flex-wrap items-center gap-3 border-t-2 border-dashed border-ink/30 pt-4">
-            <p className="font-mono text-xs uppercase tracking-[0.15em] text-ink/70">
-              Host controls →
-            </p>
-            <PrimaryButton type="button" onClick={endEditingPhase} disabled={endingRound}>
-              {endingRound ? "Ending round…" : "▸ End round & start voting"}
-            </PrimaryButton>
-            <span className="font-mono text-xs text-ink/60">
-              Sends everyone to the voting page at once.
-            </span>
-          </div>
-        ) : (
-          <p className="font-pixel text-lg text-ink/70">&gt; waiting for host to end the round_</p>
-        )}
+        <p className="font-pixel text-base text-ink/70">
+          &gt; round ends automatically once everyone has submitted_
+        </p>
       </SectionCard>
 
       <MemeEditor onSubmit={onSubmit} disabled={false} />
