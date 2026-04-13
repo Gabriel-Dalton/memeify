@@ -8,6 +8,7 @@ import { SectionCard } from "@/components/ui/section-card";
 import { getRoom, getRoundMemes, getVotes } from "@/lib/supabase/game";
 import { supabase } from "@/lib/supabase/client";
 import { type Meme, type Room, type Vote } from "@/types/memeify";
+import { formatVoteCount } from "@/lib/utils";
 
 export default function ResultsPage() {
   const params = useParams<{ roomCode: string }>();
@@ -76,7 +77,7 @@ export default function ResultsPage() {
         <SectionCard className="space-y-3">
           <p className="text-sm uppercase tracking-wide text-fuchsia-200">Winner</p>
           <p className="text-2xl font-black">🏆 {winner.meme.nickname}</p>
-          <p className="text-sm text-slate-300">{winner.score} vote{winner.score === 1 ? "" : "s"}</p>
+          <p className="text-sm text-slate-300">{formatVoteCount(winner.score)}</p>
           <img src={winner.meme.image_url} alt="Winning meme" className="max-h-[420px] w-full rounded-2xl object-contain" />
         </SectionCard>
       ) : null}
@@ -89,7 +90,7 @@ export default function ResultsPage() {
               <span>
                 #{index + 1} {entry.meme.nickname}
               </span>
-              <span>{entry.score} vote{entry.score === 1 ? "" : "s"}</span>
+              <span>{formatVoteCount(entry.score)}</span>
             </li>
           ))}
         </ul>

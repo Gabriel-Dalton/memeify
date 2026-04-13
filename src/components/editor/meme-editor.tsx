@@ -216,7 +216,7 @@ export function MemeEditor({ onSubmit, disabled = false }: MemeEditorProps) {
 
     setIsSubmitting(true);
     try {
-      const dataUrl = canvas.toDataURL({ format: "png", quality: 1, multiplier: 1 });
+      const dataUrl = canvas.toDataURL({ format: "png", quality: 0.92, multiplier: 1 });
       await onSubmit(dataUrl);
     } finally {
       setIsSubmitting(false);

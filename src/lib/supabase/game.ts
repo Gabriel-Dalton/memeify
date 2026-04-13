@@ -2,6 +2,12 @@ import { generateRoomCode } from "@/lib/utils";
 import { type LeaderboardEntry, type Meme, type Room, type RoomMember, type Vote } from "@/types/memeify";
 import { ensureAuthenticatedUser, supabase } from "./client";
 
+function sleep(milliseconds: number) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, milliseconds);
+  });
+}
+
 function getClient() {
   if (!supabase) {
     throw new Error(
@@ -41,6 +47,8 @@ export async function createRoomAndJoin(roomName: string, nickname: string) {
     if (roomInsert.error?.code !== "23505") {
       break;
     }
+
+    await sleep(40 * (attempt + 1));
   }
 
   if (!room) {

@@ -10,6 +10,7 @@ import { getSession } from "@/lib/session";
 import { castVote, getRoom, getRoundMemes, getVotes, setRoomStatus } from "@/lib/supabase/game";
 import { supabase } from "@/lib/supabase/client";
 import { type Meme, type Room, type Vote } from "@/types/memeify";
+import { formatVoteCount } from "@/lib/utils";
 
 export default function VotePage() {
   const params = useParams<{ roomCode: string }>();
@@ -111,7 +112,7 @@ export default function VotePage() {
               <img src={meme.image_url} alt={`Meme by ${meme.nickname}`} className="h-64 w-full rounded-xl object-cover" />
               <div className="flex items-center justify-between text-sm">
                 <span className="font-semibold">{meme.nickname}</span>
-                <span>{voteCount} vote{voteCount === 1 ? "" : "s"}</span>
+                <span>{formatVoteCount(voteCount)}</span>
               </div>
 
               <PrimaryButton

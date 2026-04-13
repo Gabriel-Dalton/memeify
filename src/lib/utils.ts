@@ -20,6 +20,10 @@ export function formatCountdown(totalSeconds: number) {
   return `${minutes}:${seconds}`;
 }
 
+export function formatVoteCount(count: number) {
+  return `${count} vote${count === 1 ? "" : "s"}`;
+}
+
 export function safeRoomCode(input: string) {
   return input.trim().toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 5);
 }
