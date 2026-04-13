@@ -29,29 +29,41 @@ export default function LeaderboardPage() {
   return (
     <PageShell title="Leaderboard" subtitle="Most voted meme creators across all rooms.">
       <SectionCard>
-        {loading ? <p className="text-sm text-slate-300">Loading leaderboard...</p> : null}
-        {error ? <p className="text-sm text-red-300">{error}</p> : null}
+        {loading ? <p className="font-mono text-sm text-ink/70">Loading leaderboard…</p> : null}
+        {error ? <p className="zine-error">{error}</p> : null}
 
         {!loading && !error ? (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[540px] text-left text-sm">
               <thead>
-                <tr className="border-b border-white/10 text-slate-300">
-                  <th className="px-3 py-2">Rank</th>
-                  <th className="px-3 py-2">Player</th>
-                  <th className="px-3 py-2">Votes</th>
-                  <th className="px-3 py-2">Memes Submitted</th>
+                <tr>
+                  <th className="px-3 py-3">Rank</th>
+                  <th className="px-3 py-3">Player</th>
+                  <th className="px-3 py-3">Votes</th>
+                  <th className="px-3 py-3">Memes</th>
                 </tr>
               </thead>
               <tbody>
-                {entries.map((entry, index) => (
-                  <tr key={entry.userId} className="border-b border-white/5">
-                    <td className="px-3 py-3 font-semibold">#{index + 1}</td>
-                    <td className="px-3 py-3">{entry.nickname}</td>
-                    <td className="px-3 py-3">{entry.totalVotes}</td>
-                    <td className="px-3 py-3">{entry.totalMemes}</td>
-                  </tr>
-                ))}
+                {entries.map((entry, index) => {
+                  const medal =
+                    index === 0
+                      ? "bg-riso-yellow"
+                      : index === 1
+                      ? "bg-riso-pink text-paper"
+                      : index === 2
+                      ? "bg-riso-blue text-paper"
+                      : "";
+                  return (
+                    <tr key={entry.userId} className={medal}>
+                      <td className="px-3 py-3 font-display text-base">
+                        #{String(index + 1).padStart(2, "0")}
+                      </td>
+                      <td className="px-3 py-3 font-mono">{entry.nickname}</td>
+                      <td className="px-3 py-3 font-display">{entry.totalVotes}</td>
+                      <td className="px-3 py-3 font-mono">{entry.totalMemes}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

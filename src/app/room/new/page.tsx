@@ -47,7 +47,7 @@ export default function CreateRoomPage() {
           <label className="block text-sm font-semibold">
             Room name
             <input
-              className="mt-1 w-full rounded-xl border border-white/20 bg-white/5 px-3 py-2"
+              className="mt-2 w-full"
               value={roomName}
               onChange={(event) => setRoomName(event.target.value)}
               maxLength={60}
@@ -58,7 +58,7 @@ export default function CreateRoomPage() {
           <label className="block text-sm font-semibold">
             Your nickname
             <input
-              className="mt-1 w-full rounded-xl border border-white/20 bg-white/5 px-3 py-2"
+              className="mt-2 w-full"
               value={nickname}
               onChange={(event) => setNickname(event.target.value)}
               maxLength={24}
@@ -66,7 +66,7 @@ export default function CreateRoomPage() {
             />
           </label>
 
-          {error ? <p className="text-sm text-red-300">{error}</p> : null}
+          {error ? <p className="zine-error">{error}</p> : null}
 
           <PrimaryButton type="submit" disabled={isLoading} className="w-full py-3">
             {isLoading ? "Creating room..." : "Create room"}

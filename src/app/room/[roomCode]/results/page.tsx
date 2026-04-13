@@ -71,40 +71,62 @@ export default function ResultsPage() {
 
   return (
     <PageShell title={`Results • ${roomCode}`} subtitle="Round standings based on live voting.">
-      {error ? <p className="rounded-xl bg-red-500/20 px-4 py-3 text-sm text-red-200">{error}</p> : null}
+      {error ? <p className="zine-error">{error}</p> : null}
 
       {winner ? (
-        <SectionCard className="space-y-3">
-          <p className="text-sm uppercase tracking-wide text-fuchsia-200">Winner</p>
-          <p className="text-2xl font-black">🏆 {winner.meme.nickname}</p>
-          <p className="text-sm text-slate-300">{formatVoteCount(winner.score)}</p>
-          <img src={winner.meme.image_url} alt="Winning meme" className="max-h-[420px] w-full rounded-2xl object-contain" />
+        <SectionCard className="space-y-4 bg-riso-yellow">
+          <div className="flex items-center gap-3">
+            <span className="border-[2.5px] border-ink bg-ink px-2 py-1 font-display text-[11px] uppercase tracking-[0.2em] text-paper">
+              ★ 1ST PLACE
+            </span>
+            <span className="font-mono text-xs uppercase tracking-[0.2em] text-ink/70">
+              {formatVoteCount(winner.score)}
+            </span>
+          </div>
+          <p className="font-display text-4xl leading-none riso-print">
+            🏆 {winner.meme.nickname}
+          </p>
+          <div className="border-[3px] border-ink bg-paper p-2">
+            <img
+              src={winner.meme.image_url}
+              alt="Winning meme"
+              className="max-h-[420px] w-full object-contain"
+            />
+          </div>
         </SectionCard>
       ) : null}
 
       <SectionCard>
-        <h2 className="text-lg font-bold">Full ranking</h2>
-        <ul className="mt-4 space-y-3">
+        <h2 className="font-display text-xl">Full ranking</h2>
+        <ul className="mt-4 space-y-2">
           {ranked.map((entry, index) => (
-            <li key={entry.meme.id} className="flex items-center justify-between rounded-xl bg-white/5 px-4 py-3 text-sm">
-              <span>
-                #{index + 1} {entry.meme.nickname}
+            <li
+              key={entry.meme.id}
+              className="flex items-center justify-between border-[2px] border-ink bg-paper-deep px-4 py-3 font-mono text-sm shadow-stamp-sm"
+            >
+              <span className="flex items-center gap-3">
+                <span className="font-display text-riso-pink">
+                  #{String(index + 1).padStart(2, "0")}
+                </span>
+                {entry.meme.nickname}
               </span>
-              <span>{formatVoteCount(entry.score)}</span>
+              <span className="font-display text-xs uppercase tracking-wide">
+                {formatVoteCount(entry.score)}
+              </span>
             </li>
           ))}
         </ul>
       </SectionCard>
 
-      <SectionCard className="flex flex-wrap gap-2">
-        <Link href={`/room/${roomCode}`} className="rounded-xl border border-white/20 bg-white/5 px-4 py-2 text-sm font-semibold hover:bg-white/10">
-          Back to room
+      <SectionCard className="flex flex-wrap gap-3">
+        <Link href={`/room/${roomCode}`} className="ghost-btn">
+          ← Back to room
         </Link>
-        <Link href={`/room/${roomCode}/edit`} className="rounded-xl border border-white/20 bg-white/5 px-4 py-2 text-sm font-semibold hover:bg-white/10">
-          Start another round
+        <Link href={`/room/${roomCode}/edit`} className="ghost-btn">
+          ↻ Start another round
         </Link>
-        <Link href="/leaderboard" className="rounded-xl border border-white/20 bg-white/5 px-4 py-2 text-sm font-semibold hover:bg-white/10">
-          Global leaderboard
+        <Link href="/leaderboard" className="ghost-btn">
+          ★ Global leaderboard
         </Link>
       </SectionCard>
     </PageShell>

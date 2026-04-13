@@ -225,37 +225,39 @@ export function MemeEditor({ onSubmit, disabled = false }: MemeEditorProps) {
 
   return (
     <div className="grid gap-5 lg:grid-cols-[320px_minmax(0,1fr)]">
-      <SectionCard className="space-y-4">
+      <SectionCard className="space-y-5">
         <div>
-          <h2 className="text-lg font-bold">Meme Controls</h2>
-          <p className="text-xs text-slate-300">Upload an image, drag text around, add stickers, and remix it fast.</p>
+          <h2 className="font-display text-xl">▓ Meme Controls</h2>
+          <p className="mt-1 font-mono text-xs text-ink/70">
+            Upload an image, drag text, smash stickers, remix fast.
+          </p>
         </div>
 
-        <label className="block text-sm font-semibold text-slate-200">
+        <label className="block">
           Upload image
           <input
             type="file"
             accept="image/*"
             onChange={addImage}
-            className="mt-2 block w-full cursor-pointer rounded-lg border border-white/20 bg-white/10 p-2 text-xs"
+            className="mt-2 block w-full cursor-pointer"
           />
         </label>
 
-        <label className="block text-sm font-semibold text-slate-200">
+        <label className="block">
           Top text
           <input
             value={topText}
             onChange={(event) => setTopText(event.target.value)}
-            className="mt-2 w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm"
+            className="mt-2 w-full"
           />
         </label>
 
-        <label className="block text-sm font-semibold text-slate-200">
+        <label className="block">
           Bottom text
           <input
             value={bottomText}
             onChange={(event) => setBottomText(event.target.value)}
-            className="mt-2 w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm"
+            className="mt-2 w-full"
           />
         </label>
 
@@ -264,14 +266,14 @@ export function MemeEditor({ onSubmit, disabled = false }: MemeEditorProps) {
         </PrimaryButton>
 
         <div>
-          <p className="mb-2 text-sm font-semibold">Stickers</p>
+          <p className="mb-2 font-display text-xs uppercase tracking-[0.15em]">Stickers</p>
           <div className="grid grid-cols-4 gap-2">
             {STICKERS.map((sticker) => (
               <button
                 key={sticker}
                 type="button"
                 onClick={() => addSticker(sticker)}
-                className="rounded-lg bg-white/10 p-2 text-2xl hover:bg-white/20"
+                className="border-[2px] border-ink bg-paper-deep p-2 text-2xl shadow-stamp-sm transition-transform hover:-translate-y-[2px] hover:bg-riso-yellow"
               >
                 {sticker}
               </button>
@@ -280,14 +282,18 @@ export function MemeEditor({ onSubmit, disabled = false }: MemeEditorProps) {
         </div>
 
         <div>
-          <p className="mb-2 text-sm font-semibold">Filters</p>
+          <p className="mb-2 font-display text-xs uppercase tracking-[0.15em]">Filters</p>
           <div className="grid grid-cols-2 gap-2">
             {(["none", "grayscale", "sepia", "invert", "pixelate"] as const).map((filter) => (
               <button
                 key={filter}
                 type="button"
                 onClick={() => applyFilter(filter)}
-                className={`rounded-lg px-3 py-2 text-xs font-semibold uppercase ${activeFilter === filter ? "bg-fuchsia-600 text-white" : "bg-white/10 text-slate-200"}`}
+                className={`border-[2px] border-ink px-3 py-2 font-display text-[11px] uppercase shadow-stamp-sm transition-transform hover:-translate-y-[2px] ${
+                  activeFilter === filter
+                    ? "bg-riso-pink text-ink"
+                    : "bg-paper-deep text-ink"
+                }`}
               >
                 {FILTER_LABELS[filter]}
               </button>
@@ -296,18 +302,38 @@ export function MemeEditor({ onSubmit, disabled = false }: MemeEditorProps) {
         </div>
 
         <div className="grid grid-cols-3 gap-2">
-          <button type="button" onClick={() => transformActive("rotate")} className="rounded-lg bg-white/10 px-2 py-2 text-xs">Rotate</button>
-          <button type="button" onClick={() => transformActive("flip-x")} className="rounded-lg bg-white/10 px-2 py-2 text-xs">Flip X</button>
-          <button type="button" onClick={() => transformActive("flip-y")} className="rounded-lg bg-white/10 px-2 py-2 text-xs">Flip Y</button>
+          {[
+            { label: "Rotate", mode: "rotate" as const },
+            { label: "Flip X", mode: "flip-x" as const },
+            { label: "Flip Y", mode: "flip-y" as const },
+          ].map((t) => (
+            <button
+              key={t.mode}
+              type="button"
+              onClick={() => transformActive(t.mode)}
+              className="border-[2px] border-ink bg-paper-deep px-2 py-2 font-display text-[11px] uppercase shadow-stamp-sm transition-transform hover:-translate-y-[2px] hover:bg-riso-blue hover:text-paper"
+            >
+              {t.label}
+            </button>
+          ))}
         </div>
 
         <PrimaryButton type="button" onClick={exportMeme} disabled={disabled || isSubmitting} className="w-full">
-          {isSubmitting ? "Submitting..." : "Submit meme"}
+          {isSubmitting ? "Submitting…" : "▸ Submit meme"}
         </PrimaryButton>
       </SectionCard>
 
-      <SectionCard className="overflow-auto">
-        <canvas ref={canvasElRef} className="mx-auto w-full max-w-full rounded-lg border border-white/20" />
+      <SectionCard className="overflow-auto bg-paper-deep">
+        <div className="mb-3 flex items-center justify-between">
+          <span className="font-display text-xs uppercase tracking-[0.2em] text-ink/70">
+            ▓▓ The Canvas ▓▓
+          </span>
+          <span className="font-pixel text-base text-ink/60">press & remix</span>
+        </div>
+        <canvas
+          ref={canvasElRef}
+          className="mx-auto w-full max-w-full border-[2.5px] border-ink shadow-stamp"
+        />
       </SectionCard>
     </div>
   );

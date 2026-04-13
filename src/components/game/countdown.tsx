@@ -47,8 +47,17 @@ export function Countdown({ roomCode, onExpire }: Props) {
   const danger = secondsLeft <= 30;
 
   return (
-    <div className={`rounded-xl px-4 py-3 text-sm font-semibold ${danger ? "bg-red-500/20 text-red-200" : "bg-emerald-500/20 text-emerald-100"}`}>
-      ⏳ Time left: <span className="font-mono text-base">{formatCountdown(secondsLeft)}</span>
+    <div
+      className={`flex items-center justify-between border-[2.5px] border-ink px-4 py-3 shadow-stamp-sm ${
+        danger ? "bg-riso-pink animate-pulse" : "bg-riso-yellow"
+      }`}
+    >
+      <span className="font-display text-xs uppercase tracking-[0.15em] text-ink">
+        ⏱ Time Remaining
+      </span>
+      <span className="font-display text-2xl tabular-nums text-ink">
+        {formatCountdown(secondsLeft)}
+      </span>
     </div>
   );
 }

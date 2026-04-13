@@ -99,20 +99,36 @@ export default function VotePage() {
 
   return (
     <PageShell title={`Vote • ${roomCode}`} subtitle="Pick the funniest meme this round.">
-      {error ? <p className="rounded-xl bg-red-500/20 px-4 py-3 text-sm text-red-200">{error}</p> : null}
+      {error ? <p className="zine-error">{error}</p> : null}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {memes.map((meme) => {
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        {memes.map((meme, i) => {
           const voteCount = votesByMeme.get(meme.id) ?? 0;
           const isMine = meme.user_id === session?.userId;
           const isSelected = myVote === meme.id;
+          const rotate = i % 2 === 0 ? "-rotate-[0.6deg]" : "rotate-[0.8deg]";
 
           return (
-            <SectionCard key={meme.id} className="space-y-3">
-              <img src={meme.image_url} alt={`Meme by ${meme.nickname}`} className="h-64 w-full rounded-xl object-cover" />
-              <div className="flex items-center justify-between text-sm">
-                <span className="font-semibold">{meme.nickname}</span>
-                <span>{formatVoteCount(voteCount)}</span>
+            <SectionCard
+              key={meme.id}
+              className={`space-y-3 transition-transform hover:rotate-0 ${rotate} ${
+                isSelected ? "bg-riso-yellow" : ""
+              }`}
+            >
+              <div className="relative border-[2.5px] border-ink bg-paper-deep p-2">
+                <img
+                  src={meme.image_url}
+                  alt={`Meme by ${meme.nickname}`}
+                  className="h-64 w-full object-cover"
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="font-display text-sm uppercase tracking-wide">
+                  {meme.nickname}
+                </span>
+                <span className="border-[2px] border-ink bg-riso-pink px-2 py-0.5 font-display text-xs">
+                  {formatVoteCount(voteCount)}
+                </span>
               </div>
 
               <PrimaryButton
@@ -121,7 +137,7 @@ export default function VotePage() {
                 onClick={() => onVote(meme.id)}
                 disabled={isMine || isSubmitting || Boolean(myVote)}
               >
-                {isMine ? "You cannot vote for yourself" : isSelected ? "Voted" : "Vote"}
+                {isMine ? "Can't vote for yourself" : isSelected ? "★ Voted" : "Vote"}
               </PrimaryButton>
             </SectionCard>
           );
@@ -129,12 +145,12 @@ export default function VotePage() {
       </div>
 
       <SectionCard className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-slate-300">Need more edits? Jump back to the editor.</p>
-        <div className="flex gap-2">
-          <Link href={`/room/${roomCode}/edit`}>
-            <button className="rounded-xl border border-white/20 bg-white/5 px-4 py-2 text-sm font-semibold hover:bg-white/10">
-              Back to editor
-            </button>
+        <p className="font-mono text-sm text-ink/80">
+          Need more edits? Jump back to the editor.
+        </p>
+        <div className="flex flex-wrap gap-3">
+          <Link href={`/room/${roomCode}/edit`} className="ghost-btn">
+            ← Back to editor
           </Link>
           <PrimaryButton type="button" onClick={finishVoting}>
             Show results

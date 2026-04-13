@@ -45,49 +45,56 @@ export default function RoomLobbyPage() {
 
   return (
     <PageShell
-      title={room ? `${room.name} (${room.code})` : `Room ${roomCode}`}
+      title={room ? `${room.name}` : `Room ${roomCode}`}
       subtitle="Invite players, then move through Edit → Vote → Results."
     >
-      {room ? (
-        <div className="flex">
-          <RoomStateBadge status={room.status} />
-        </div>
-      ) : null}
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="border-[2.5px] border-ink bg-riso-yellow px-3 py-1.5 font-display text-[11px] uppercase tracking-[0.2em] shadow-stamp-sm">
+          CODE / {roomCode}
+        </span>
+        {room ? <RoomStateBadge status={room.status} /> : null}
+        <span className="font-mono text-xs uppercase tracking-[0.15em] text-ink/70">
+          Round {room?.round_number ?? 1}
+        </span>
+      </div>
 
       <SectionCard>
-        {isLoading ? <p className="text-sm text-slate-300">Loading room...</p> : null}
-        {error ? <p className="text-sm text-red-300">{error}</p> : null}
+        {isLoading ? (
+          <p className="font-mono text-sm text-ink/70">Loading room…</p>
+        ) : null}
+        {error ? <p className="zine-error">{error}</p> : null}
         {!isLoading && !error ? (
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-6 sm:grid-cols-2">
             <div>
-              <h2 className="text-lg font-bold">Players ({members.length})</h2>
-              <ul className="mt-3 space-y-2 text-sm text-slate-200">
-                {members.map((member) => (
-                  <li key={member.id} className="rounded-lg bg-white/5 px-3 py-2">
+              <h2 className="font-display text-xl">
+                Players <span className="text-riso-pink">({members.length})</span>
+              </h2>
+              <ul className="mt-4 space-y-2">
+                {members.map((member, i) => (
+                  <li
+                    key={member.id}
+                    className="flex items-center gap-3 border-[2px] border-ink bg-paper-deep px-3 py-2 font-mono text-sm shadow-stamp-sm"
+                  >
+                    <span className="font-display text-xs text-riso-pink">
+                      #{String(i + 1).padStart(2, "0")}
+                    </span>
                     {member.nickname}
                   </li>
                 ))}
               </ul>
             </div>
             <div className="space-y-3">
-              <p className="text-sm text-slate-300">Round {room?.round_number ?? 1}</p>
               <PrimaryButton type="button" className="w-full" onClick={startEditing}>
                 Start editing phase
               </PrimaryButton>
-              <Link href={`/room/${roomCode}/edit`} className="block">
-                <button className="w-full rounded-xl border border-white/20 bg-white/5 px-4 py-2.5 text-sm font-semibold hover:bg-white/10">
-                  Go to meme editor
-                </button>
+              <Link href={`/room/${roomCode}/edit`} className="ghost-btn w-full">
+                → Go to meme editor
               </Link>
-              <Link href={`/room/${roomCode}/vote`} className="block">
-                <button className="w-full rounded-xl border border-white/20 bg-white/5 px-4 py-2.5 text-sm font-semibold hover:bg-white/10">
-                  Go to voting page
-                </button>
+              <Link href={`/room/${roomCode}/vote`} className="ghost-btn w-full">
+                → Go to voting page
               </Link>
-              <Link href={`/room/${roomCode}/results`} className="block">
-                <button className="w-full rounded-xl border border-white/20 bg-white/5 px-4 py-2.5 text-sm font-semibold hover:bg-white/10">
-                  View results
-                </button>
+              <Link href={`/room/${roomCode}/results`} className="ghost-btn w-full">
+                → View results
               </Link>
             </div>
           </div>

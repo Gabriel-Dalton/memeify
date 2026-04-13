@@ -48,7 +48,7 @@ export default function JoinRoomPage() {
           <label className="block text-sm font-semibold">
             Room code
             <input
-              className="mt-1 w-full rounded-xl border border-white/20 bg-white/5 px-3 py-2 uppercase"
+              className="mt-2 w-full font-display uppercase tracking-[0.3em]"
               value={roomCode}
               onChange={(event) => setRoomCode(event.target.value)}
               maxLength={5}
@@ -59,7 +59,7 @@ export default function JoinRoomPage() {
           <label className="block text-sm font-semibold">
             Your nickname
             <input
-              className="mt-1 w-full rounded-xl border border-white/20 bg-white/5 px-3 py-2"
+              className="mt-2 w-full"
               value={nickname}
               onChange={(event) => setNickname(event.target.value)}
               maxLength={24}
@@ -67,7 +67,7 @@ export default function JoinRoomPage() {
             />
           </label>
 
-          {error ? <p className="text-sm text-red-300">{error}</p> : null}
+          {error ? <p className="zine-error">{error}</p> : null}
 
           <PrimaryButton type="submit" disabled={isLoading} className="w-full py-3">
             {isLoading ? "Joining room..." : "Join room"}

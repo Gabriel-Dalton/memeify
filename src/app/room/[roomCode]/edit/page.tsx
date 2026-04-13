@@ -69,11 +69,11 @@ export default function EditRoomPage() {
       <SectionCard className="space-y-4">
         <Countdown roomCode={roomCode} onExpire={() => setExpired(true)} />
         {expired ? (
-          <p className="rounded-xl bg-red-500/20 px-4 py-3 text-sm text-red-200">
-            Time is up. Start another round or head to voting.
+          <p className="zine-error">
+            ✗ Time is up. Start another round or head to voting.
           </p>
         ) : null}
-        {error ? <p className="text-sm text-red-300">{error}</p> : null}
+        {error ? <p className="zine-error">{error}</p> : null}
       </SectionCard>
 
       <MemeEditor onSubmit={onSubmit} disabled={expired} />

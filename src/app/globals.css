@@ -1,13 +1,236 @@
 @import "tailwindcss";
+@import url("https://fonts.googleapis.com/css2?family=Rubik+Mono+One&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=VT323&display=swap");
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
+  --paper: #f4ecd8;
+  --paper-deep: #ead9b6;
+  --ink: #0f0e0c;
+  --riso-pink: #ff3ea5;
+  --riso-blue: #2b44ff;
+  --riso-yellow: #f7ff3c;
+  --riso-green: #00b37a;
+
+  --font-display: "Rubik Mono One", "Impact", sans-serif;
+  --font-mono: "Space Mono", ui-monospace, monospace;
+  --font-pixel: "VT323", monospace;
 }
 
+@theme inline {
+  --color-paper: var(--paper);
+  --color-paper-deep: var(--paper-deep);
+  --color-ink: var(--ink);
+  --color-riso-pink: var(--riso-pink);
+  --color-riso-blue: var(--riso-blue);
+  --color-riso-yellow: var(--riso-yellow);
+  --color-riso-green: var(--riso-green);
+  --font-display: var(--font-display);
+  --font-mono: var(--font-mono);
+  --font-pixel: var(--font-pixel);
+}
+
+html,
 body {
-  background:
-    radial-gradient(circle at 15% 10%, rgba(217, 70, 239, 0.3), transparent 35%),
-    radial-gradient(circle at 85% 85%, rgba(59, 130, 246, 0.22), transparent 38%),
-    #020617;
-  font-family: "Inter", "Avenir Next", "Segoe UI", sans-serif;
+  background-color: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-mono);
+}
+
+/* Halftone + grain overlay for the entire page — gives the risograph print feel */
+body {
+  background-image:
+    radial-gradient(circle at 12% 18%, rgba(255, 62, 165, 0.22) 0, transparent 32%),
+    radial-gradient(circle at 88% 82%, rgba(43, 68, 255, 0.2) 0, transparent 36%),
+    radial-gradient(rgba(15, 14, 12, 0.18) 1px, transparent 1px);
+  background-size: auto, auto, 6px 6px;
+  background-position: 0 0, 0 0, 0 0;
+  background-attachment: fixed, fixed, fixed;
+  position: relative;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.35 0'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='0.55'/></svg>");
+  opacity: 0.35;
+  mix-blend-mode: multiply;
+}
+
+/* Utility: hard chunky offset shadow (the signature of this aesthetic) */
+.shadow-stamp {
+  box-shadow: 6px 6px 0 0 var(--ink);
+}
+.shadow-stamp-pink {
+  box-shadow: 6px 6px 0 0 var(--riso-pink);
+}
+.shadow-stamp-blue {
+  box-shadow: 6px 6px 0 0 var(--riso-blue);
+}
+.shadow-stamp-sm {
+  box-shadow: 3px 3px 0 0 var(--ink);
+}
+
+/* Off-register print headline — two color layers offset like a misprinted zine */
+.riso-print {
+  position: relative;
+  display: inline-block;
+  color: var(--ink);
+  text-shadow:
+    3px 3px 0 var(--riso-pink),
+    -2px -2px 0 var(--riso-blue);
+}
+
+/* Slight paper jitter on hover */
+@keyframes paper-jitter {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  25% { transform: translate(-1px, 1px) rotate(-0.4deg); }
+  50% { transform: translate(1px, -1px) rotate(0.3deg); }
+  75% { transform: translate(-1px, 0) rotate(0.2deg); }
+}
+.hover-jitter:hover {
+  animation: paper-jitter 0.4s ease-in-out infinite;
+}
+
+/* Stamp-in entrance */
+@keyframes stamp-in {
+  0% { transform: scale(1.4) rotate(-6deg); opacity: 0; }
+  60% { transform: scale(0.96) rotate(1deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+.animate-stamp-in {
+  animation: stamp-in 0.5s cubic-bezier(0.2, 0.8, 0.3, 1.2) both;
+}
+
+@keyframes slide-up {
+  from { transform: translateY(18px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.animate-slide-up {
+  animation: slide-up 0.6s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+
+/* Decorative diagonal tape strip */
+.tape {
+  position: absolute;
+  width: 120px;
+  height: 24px;
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(247, 255, 60, 0.85),
+    rgba(247, 255, 60, 0.85) 8px,
+    rgba(247, 255, 60, 0.6) 8px,
+    rgba(247, 255, 60, 0.6) 16px
+  );
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  mix-blend-mode: multiply;
+}
+
+/* Scrolling marquee */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.marquee-track {
+  animation: marquee 28s linear infinite;
+  will-change: transform;
+}
+
+/* Keep content above the noise overlay */
+main, header, footer, nav { position: relative; z-index: 2; }
+
+/* Form defaults — pages inherit the zine look without rewriting classes */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="search"],
+input[type="file"],
+input:not([type]),
+textarea,
+select {
+  background: var(--paper);
+  color: var(--ink);
+  border: 2.5px solid var(--ink);
+  border-radius: 0;
+  box-shadow: 3px 3px 0 0 var(--ink);
+  padding: 10px 12px;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  outline: none;
+  transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease;
+}
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  background: var(--riso-yellow);
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 0 var(--ink);
+}
+input::placeholder,
+textarea::placeholder { color: rgba(15, 14, 12, 0.45); }
+
+label {
+  font-family: var(--font-display);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+th {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 11px;
+  border-bottom: 2.5px solid var(--ink);
+  color: var(--ink);
+}
+td {
+  border-bottom: 1.5px dashed rgba(15, 14, 12, 0.2);
+  font-family: var(--font-mono);
+}
+
+/* Secondary / ghost button — for all the inline "back to X" links */
+.ghost-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: var(--paper);
+  color: var(--ink);
+  border: 2.5px solid var(--ink);
+  box-shadow: 3px 3px 0 0 var(--ink);
+  padding: 10px 16px;
+  font-family: var(--font-display);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease, color 120ms ease;
+}
+.ghost-btn:hover {
+  background: var(--riso-blue);
+  color: var(--paper);
+  transform: translate(-2px, -2px);
+  box-shadow: 5px 5px 0 0 var(--ink);
+}
+.ghost-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 0 var(--ink);
+}
+
+/* Alert-ish chip */
+.zine-error {
+  background: var(--riso-pink);
+  color: var(--ink);
+  border: 2.5px solid var(--ink);
+  box-shadow: 3px 3px 0 0 var(--ink);
+  padding: 10px 14px;
+  font-family: var(--font-mono);
+  font-size: 13px;
 }
