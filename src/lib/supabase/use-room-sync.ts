@@ -30,6 +30,8 @@ export function useRoomSync(
     [expectedStatus],
   );
 
+  const roomIdRef = useRef<string | null>(null);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -38,6 +40,7 @@ export function useRoomSync(
         const r = await getRoom(roomCode);
         if (cancelled) return;
         setRoom(r);
+        roomIdRef.current = r.id;
         if (userId) {
           const m = await getMyMembership(r.id, userId);
           if (cancelled) return;
@@ -82,25 +85,28 @@ export function useRoomSync(
     }
   }, [me, router]);
 
-  // Realtime subscription.
+  // Stable room ID for subscriptions — avoids re-subscribing on every room
+  // object update from realtime.
+  const roomId = room?.id;
+
   useEffect(() => {
-    if (!supabase || !room) return;
+    if (!supabase || !roomId) return;
     const client = supabase;
     const channel = client
-      .channel(`room-sync-${room.id}`)
+      .channel(`room-sync-${roomId}`)
       .on(
         "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "rooms", filter: `id=eq.${room.id}` },
+        { event: "UPDATE", schema: "public", table: "rooms", filter: `id=eq.${roomId}` },
         (payload) => {
-          setRoom((prev) => ({ ...(prev ?? room), ...(payload.new as Room) }));
+          setRoom((prev) => (prev ? { ...prev, ...(payload.new as Room) } : (payload.new as Room)));
         },
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "room_members", filter: `room_id=eq.${room.id}` },
+        { event: "*", schema: "public", table: "room_members", filter: `room_id=eq.${roomId}` },
         async (payload) => {
           if (userId) {
-            const m = await getMyMembership(room.id, userId);
+            const m = await getMyMembership(roomId, userId);
             setMe(m);
           }
           if (payload.eventType === "DELETE") {
@@ -115,7 +121,7 @@ export function useRoomSync(
     return () => {
       void client.removeChannel(channel);
     };
-  }, [room, userId]);
+  }, [roomId, userId]);
 
   return {
     room,

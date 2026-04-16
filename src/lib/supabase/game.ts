@@ -194,6 +194,17 @@ export async function setRoomStatus(roomId: string, status: Room["status"]) {
 
 export async function startNextRound(roomId: string, currentRound: number) {
   const client = getClient();
+
+  // Clear submitted_at so the "all submitted" check starts fresh.
+  const resetSubmitted = await client
+    .from("room_members")
+    .update({ submitted_at: null })
+    .eq("room_id", roomId)
+    .is("kicked_at", null);
+  if (resetSubmitted.error) {
+    throw new Error(resetSubmitted.error.message);
+  }
+
   const updated = await client
     .from("rooms")
     .update({ status: "editing", round_number: currentRound + 1 })

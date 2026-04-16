@@ -24,7 +24,7 @@ export default function VotePage() {
   const params = useParams<{ roomCode: string }>();
   const roomCode = String(params.roomCode).toUpperCase();
   const session = getSession();
-  const { room, error: syncError, leaveNotice } = useRoomSync(
+  const { room, isAdmin, error: syncError, leaveNotice } = useRoomSync(
     roomCode,
     session?.userId,
     "voting",
@@ -36,69 +36,96 @@ export default function VotePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [voterCount, setVoterCount] = useState(0);
   const [totalVoters, setTotalVoters] = useState(0);
+  const [showingResults, setShowingResults] = useState(false);
+  const [memesLoaded, setMemesLoaded] = useState(false);
   const transitioningRef = useRef(false);
 
+  const roomId = room?.id;
+  const roundNumber = room?.round_number;
+
+  const memeAuthors = useMemo(
+    () => new Set(memes.map((m) => m.user_id)),
+    [memes],
+  );
+
   const checkAllVoted = useCallback(async () => {
-    if (!room || transitioningRef.current) return;
+    if (!roomId || !roundNumber || transitioningRef.current) return;
     try {
       const [voters, active] = await Promise.all([
-        countRoundVoters(room.id, room.round_number),
-        countActiveMembers(room.id),
+        countRoundVoters(roomId, roundNumber),
+        countActiveMembers(roomId),
       ]);
       setVoterCount(voters);
       setTotalVoters(active);
 
-      // Adjust for the case where someone can't vote for themselves — really
-      // we just need everyone who CAN vote to vote. For a tiny party game this
-      // is a fine heuristic: once voters >= active, or once voters >= active-1
-      // and there's only one meme (so the author can't vote), advance.
-      if (active > 0 && voters >= active) {
+      if (active <= 0) return;
+
+      // Everyone who CAN vote has voted. Players who authored the only meme
+      // can't vote for themselves and have no other option, so they don't
+      // count as expected voters when there's only 1 meme.
+      const eligibleVoters =
+        memes.length === 1
+          ? active - memes.filter((m) => memeAuthors.has(m.user_id)).length
+          : active;
+
+      if (eligibleVoters > 0 && voters >= eligibleVoters) {
         transitioningRef.current = true;
-        await setRoomStatus(room.id, "results");
-      } else if (memes.length === 1 && voters >= active - 1 && active > 1) {
-        // One meme, everyone except author voted → done.
-        transitioningRef.current = true;
-        await setRoomStatus(room.id, "results");
+        await setRoomStatus(roomId, "results");
       }
     } catch (caught) {
       console.error("auto-transition check failed", caught);
     }
-  }, [room, memes.length]);
+  }, [roomId, roundNumber, memes, memeAuthors]);
 
   useEffect(() => {
-    if (!room) return;
+    if (!roomId || !roundNumber) return;
+    let cancelled = false;
     const load = async () => {
       try {
         const [m, v] = await Promise.all([
-          getRoundMemes(room.id, room.round_number),
-          getVotes(room.id, room.round_number),
+          getRoundMemes(roomId, roundNumber),
+          getVotes(roomId, roundNumber),
         ]);
+        if (cancelled) return;
         setMemes(m);
         setVotes(v);
+        setMemesLoaded(true);
       } catch (caught) {
-        setError(caught instanceof Error ? caught.message : "Unable to load voting data.");
+        if (!cancelled) {
+          setError(caught instanceof Error ? caught.message : "Unable to load voting data.");
+        }
       }
     };
     load();
-  }, [room]);
+    return () => { cancelled = true; };
+  }, [roomId, roundNumber]);
+
+  // When we discover 0 memes, auto-skip to results immediately.
+  useEffect(() => {
+    if (!roomId || !memesLoaded || transitioningRef.current) return;
+    if (memes.length === 0) {
+      transitioningRef.current = true;
+      void setRoomStatus(roomId, "results");
+    }
+  }, [roomId, memesLoaded, memes.length]);
 
   useEffect(() => {
-    if (!room || !supabase) return;
+    if (!roomId || !roundNumber || !supabase) return;
     const client = supabase;
     const channel = client
-      .channel(`vote-sync-${room.id}-${room.round_number}`)
+      .channel(`vote-sync-${roomId}-${roundNumber}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "votes", filter: `room_id=eq.${room.id}` },
+        { event: "*", schema: "public", table: "votes", filter: `room_id=eq.${roomId}` },
         async () => {
-          const fresh = await getVotes(room.id, room.round_number);
+          const fresh = await getVotes(roomId, roundNumber);
           setVotes(fresh);
           void checkAllVoted();
         },
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "room_members", filter: `room_id=eq.${room.id}` },
+        { event: "*", schema: "public", table: "room_members", filter: `room_id=eq.${roomId}` },
         () => checkAllVoted(),
       )
       .subscribe();
@@ -110,7 +137,7 @@ export default function VotePage() {
       window.clearInterval(interval);
       void client.removeChannel(channel);
     };
-  }, [room, checkAllVoted]);
+  }, [roomId, roundNumber, checkAllVoted]);
 
   const votesByMeme = useMemo(() => {
     const map = new Map<string, number>();
@@ -136,6 +163,20 @@ export default function VotePage() {
       setError(caught instanceof Error ? caught.message : "Vote failed.");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const showResultsNow = async () => {
+    if (!room || transitioningRef.current) return;
+    setShowingResults(true);
+    setError(null);
+    try {
+      transitioningRef.current = true;
+      await setRoomStatus(room.id, "results");
+    } catch (caught) {
+      transitioningRef.current = false;
+      setError(caught instanceof Error ? caught.message : "Could not show results.");
+      setShowingResults(false);
     }
   };
 
@@ -208,17 +249,30 @@ export default function VotePage() {
             </SectionCard>
           );
         })}
-        {memes.length === 0 ? (
+        {memes.length === 0 && memesLoaded ? (
           <SectionCard className="col-span-full text-center">
-            <p className="font-mono text-sm text-ink/70">No memes were submitted this round. Oof.</p>
+            <p className="font-mono text-sm text-ink/70">No memes were submitted this round — skipping to results.</p>
           </SectionCard>
         ) : null}
       </div>
 
-      <SectionCard>
-        <p className="font-pixel text-lg text-ink/70">
-          &gt; results appear as soon as everyone has voted_
-        </p>
+      <SectionCard className="space-y-3">
+        {isAdmin ? (
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="font-mono text-xs uppercase tracking-[0.15em] text-ink/70">Host controls →</span>
+            <PrimaryButton
+              type="button"
+              onClick={showResultsNow}
+              disabled={showingResults}
+            >
+              {showingResults ? "Showing…" : "Show results now"}
+            </PrimaryButton>
+          </div>
+        ) : (
+          <p className="font-pixel text-lg text-ink/70">
+            &gt; results appear as soon as everyone has voted_
+          </p>
+        )}
       </SectionCard>
     </PageShell>
   );
