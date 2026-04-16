@@ -60,15 +60,18 @@ export default function VotePage() {
 
       if (active <= 0) return;
 
-      // Everyone who CAN vote has voted. Players who authored the only meme
-      // can't vote for themselves and have no other option, so they don't
-      // count as expected voters when there's only 1 meme.
+      // With 1 meme the author can't vote for themselves (no other option),
+      // so subtract them from the expected voter count.
+      // With 2+ memes every player can vote for at least one other meme.
       const eligibleVoters =
         memes.length === 1
           ? active - memes.filter((m) => memeAuthors.has(m.user_id)).length
           : active;
 
-      if (eligibleVoters > 0 && voters >= eligibleVoters) {
+      if (eligibleVoters <= 0) {
+        transitioningRef.current = true;
+        await setRoomStatus(roomId, "results");
+      } else if (voters >= eligibleVoters) {
         transitioningRef.current = true;
         await setRoomStatus(roomId, "results");
       }
