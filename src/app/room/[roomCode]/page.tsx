@@ -68,14 +68,16 @@ export default function RoomLobbyPage() {
     }
   }, [session, roomCode, router]);
 
+  const roomId = room?.id;
+
   const refreshMembers = useCallback(async () => {
-    if (!room) return;
+    if (!roomId) return;
     try {
-      setMembers(await getRoomMembers(room.id));
+      setMembers(await getRoomMembers(roomId));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not load players.");
     }
-  }, [room]);
+  }, [roomId]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -84,20 +86,20 @@ export default function RoomLobbyPage() {
 
   // Live member list via realtime.
   useEffect(() => {
-    if (!supabase || !room) return;
+    if (!supabase || !roomId) return;
     const client = supabase;
     const channel = client
-      .channel(`lobby-members-${room.id}`)
+      .channel(`lobby-members-${roomId}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "room_members", filter: `room_id=eq.${room.id}` },
+        { event: "*", schema: "public", table: "room_members", filter: `room_id=eq.${roomId}` },
         () => refreshMembers(),
       )
       .subscribe();
     return () => {
       void client.removeChannel(channel);
     };
-  }, [room, refreshMembers]);
+  }, [roomId, refreshMembers]);
 
   const start = async () => {
     if (!room || !isAdmin) return;

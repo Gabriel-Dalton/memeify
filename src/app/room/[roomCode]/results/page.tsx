@@ -37,33 +37,41 @@ export default function ResultsPage() {
   const [wiping, setWiping] = useState(false);
   const [wiped, setWiped] = useState(false);
 
+  const roomId = room?.id;
+  const roundNumber = room?.round_number;
+
   useEffect(() => {
-    if (!room) return;
+    if (!roomId || !roundNumber) return;
+    let cancelled = false;
     const load = async () => {
       try {
         const [m, v] = await Promise.all([
-          getRoundMemes(room.id, room.round_number),
-          getVotes(room.id, room.round_number),
+          getRoundMemes(roomId, roundNumber),
+          getVotes(roomId, roundNumber),
         ]);
+        if (cancelled) return;
         setMemes(m);
         setVotes(v);
       } catch (caught) {
-        setError(caught instanceof Error ? caught.message : "Unable to load results.");
+        if (!cancelled) {
+          setError(caught instanceof Error ? caught.message : "Unable to load results.");
+        }
       }
     };
     load();
-  }, [room]);
+    return () => { cancelled = true; };
+  }, [roomId, roundNumber]);
 
   useEffect(() => {
-    if (!room || !supabase) return;
+    if (!roomId || !roundNumber || !supabase) return;
     const client = supabase;
     const channel = client
-      .channel(`results-${room.id}-${room.round_number}`)
+      .channel(`results-${roomId}-${roundNumber}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "votes", filter: `room_id=eq.${room.id}` },
+        { event: "*", schema: "public", table: "votes", filter: `room_id=eq.${roomId}` },
         async () => {
-          const fresh = await getVotes(room.id, room.round_number);
+          const fresh = await getVotes(roomId, roundNumber);
           setVotes(fresh);
         },
       )
@@ -71,7 +79,7 @@ export default function ResultsPage() {
     return () => {
       void client.removeChannel(channel);
     };
-  }, [room]);
+  }, [roomId, roundNumber]);
 
   const ranked = useMemo(() => {
     const voteMap = new Map<string, number>();

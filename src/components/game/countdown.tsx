@@ -7,15 +7,16 @@ const ROUND_SECONDS = 180;
 
 interface Props {
   roomCode: string;
+  roundNumber?: number;
   onExpire?: () => void;
 }
 
-function getDeadlineKey(roomCode: string) {
-  return `memeify-deadline-${roomCode}`;
+function getDeadlineKey(roomCode: string, roundNumber: number) {
+  return `memeify-deadline-${roomCode}-r${roundNumber}`;
 }
 
-export function Countdown({ roomCode, onExpire }: Props) {
-  const deadlineKey = useMemo(() => getDeadlineKey(roomCode), [roomCode]);
+export function Countdown({ roomCode, roundNumber = 1, onExpire }: Props) {
+  const deadlineKey = useMemo(() => getDeadlineKey(roomCode, roundNumber), [roomCode, roundNumber]);
   const [secondsLeft, setSecondsLeft] = useState(ROUND_SECONDS);
 
   useEffect(() => {
